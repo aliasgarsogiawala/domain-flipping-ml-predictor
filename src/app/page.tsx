@@ -27,19 +27,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 sm:px-8 lg:px-12">
-        <header className="flex items-center justify-between border-b border-white/10 pb-6">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.32em] text-slate-400">
-              DomainFlip AI
-            </p>
-          </div>
-          <Link
-            href="/analyze"
-            className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-100 shadow-sm hover:border-slate-500 hover:bg-slate-800"
-          >
-            Open Analyzer
-          </Link>
-        </header>
+        
 
         <section className="grid flex-1 items-center gap-16 py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:py-24">
           <div className="max-w-3xl">
@@ -113,8 +101,13 @@ export default function Home() {
                     Investor-style screening snapshot
                   </p>
                 </div>
-                <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-300">
-                  Score 86
+                <div className="flex flex-col items-end gap-2">
+                  <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-300">
+                    Brand Prestige 86
+                  </div>
+                  <div className="rounded-full border border-sky-500/20 bg-sky-500/8 px-3 py-1 text-sm font-medium text-sky-200">
+                    Investment 78
+                  </div>
                 </div>
               </div>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">

@@ -1,30 +1,37 @@
-import {
-  getMockAvailabilityStatus,
-  type DomainAvailabilityStatus,
-} from "@/lib/domainAvailability";
+import { getMockAvailabilityStatus, type DomainAvailabilityStatus } from "./domainAvailability";
 
-export type DomainAnalysisResult = {
+export type RuleAnalysis = {
   domain: string;
   name: string;
   tld: string;
-  score: number;
-  availabilityStatus: DomainAvailabilityStatus;
+  ruleScore: number;
   breakdown: DomainScoreBreakdown;
-  verdict:
-    | "Low Potential"
-    | "Moderate Potential"
-    | "High Potential"
-    | "Premium Potential";
+  reasons: string[];
+  weaknesses: string[];
+};
+
+export type ApiAnalysisResponse = {
+  domain: string;
+  score: number; // final score
+  ruleScore: number;
+  marketScore: number;
+  availabilityStatus: DomainAvailabilityStatus;
+  estimatedValueUsd: number;
+  verdict: "Low Potential" | "Moderate Potential" | "High Potential" | "Premium Potential";
   riskLevel: "Low" | "Medium" | "High";
   reasons: string[];
   weaknesses: string[];
+  marketData: any;
 };
 
 export type DomainScoreBreakdown = {
   tldStrength: number;
   length: number;
   brandability: number;
-  keywordTrend: number;
+  memorability: number;
+  pronounceability: number;
+  premiumBrandSignal: number;
+  trendRelevance: number;
   commercialIntent: number;
   riskPenalties: number;
 };
@@ -100,14 +107,14 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function getVerdict(score: number): DomainAnalysisResult["verdict"] {
+function getVerdict(score: number): ApiAnalysisResponse["verdict"] {
   if (score >= 85) return "Premium Potential";
   if (score >= 70) return "High Potential";
   if (score >= 50) return "Moderate Potential";
   return "Low Potential";
 }
 
-function getRiskLevel(score: number): DomainAnalysisResult["riskLevel"] {
+function getRiskLevel(score: number): ApiAnalysisResponse["riskLevel"] {
   if (score >= 80) return "Low";
   if (score >= 55) return "Medium";
   return "High";
@@ -204,6 +211,98 @@ function scoreBrandability(name: string, reasons: string[], weaknesses: string[]
   return clamp(score, 0, 20);
 }
 
+function scorePronounceability(name: string, reasons: string[], weaknesses: string[]) {
+  const compactName = name.replace(/\./g, "");
+  const consonantClusters = (compactName.match(/[bcdfghjklmnpqrstvwxyz]{3,}/g) ?? []).length;
+  const vowelCount = (compactName.match(/[aeiou]/g) ?? []).length;
+  let score = 0;
+
+  if (vowelCount >= 1 && vowelCount <= Math.ceil(compactName.length * 0.6)) {
+    score += 6;
+    reasons.push("Balanced vowel presence supports pronunciation.");
+  } else {
+    weaknesses.push("Unusual vowel patterns may reduce pronounceability.");
+  }
+
+  if (consonantClusters === 0) {
+    score += 4;
+    reasons.push("No long consonant clusters — easier to say.");
+  } else {
+    weaknesses.push("Long consonant clusters can make names harder to speak.");
+  }
+
+  if (!/[0-9-]/.test(compactName) && compactName.length <= 12) {
+    score += 3;
+  }
+
+  return clamp(score, 0, 15);
+}
+
+function scoreMemorability(name: string, reasons: string[], weaknesses: string[]) {
+  const compactName = name.replace(/\./g, "");
+  let score = 0;
+
+  if (compactName.length <= 6) {
+    score += 8;
+    reasons.push("Short names are easier to remember.");
+  } else if (compactName.length <= 9) {
+    score += 5;
+  } else {
+    weaknesses.push("Longer names tend to be less memorable.");
+  }
+
+  const uniq = uniqueCharactersRatio(compactName);
+  if (uniq >= 0.7) {
+    score += 5;
+    reasons.push("Distinct character mix improves recall.");
+  }
+
+  if (/^[a-z]{3,}$/.test(compactName)) {
+    score += 2;
+  }
+
+  return clamp(score, 0, 15);
+}
+
+function scorePremiumBrandSignal(name: string, tld: string, reasons: string[], weaknesses: string[]) {
+  const compactName = name.replace(/\./g, "");
+  let score = 0;
+
+  // Short names and brandable shapes get a boost
+  if (compactName.length <= 6) {
+    score += 6;
+    reasons.push("Short name contributes to premium brand feel.");
+  }
+
+  if (isBrandable(compactName)) {
+    score += 6;
+    reasons.push("Name follows common brandable patterns.");
+  }
+
+  const uniq = uniqueCharactersRatio(compactName);
+  if (uniq >= 0.72) {
+    score += 3;
+  }
+
+  // Favor names ending with a vowel or common brand-ending letters
+  if (/[aeiouy]$/.test(compactName)) {
+    score += 2;
+  }
+
+  // Strong TLDs slightly amplify premium perception
+  if (STRONG_TLDS[tld]) {
+    score += 2;
+  }
+
+  // Penalize hyphens / numbers (redundant with risk penalties but keep small negative influence)
+  if (compactName.includes("-") || /\d/.test(compactName)) {
+    weaknesses.push("Hyphens or numbers reduce premium brand perception.");
+    score -= 3;
+  }
+
+  return clamp(score, 0, 20);
+}
+
 function scoreKeywordTrend(name: string, reasons: string[], weaknesses: string[]) {
   const compactName = name.replace(/\./g, "");
   const trendHits = TRENDING_KEYWORDS.filter((keyword) => compactName.includes(keyword));
@@ -272,7 +371,7 @@ function scoreRiskPenalties(name: string, reasons: string[], weaknesses: string[
   return clamp(penalty, 0, 20);
 }
 
-export function analyzeDomain(input: string): DomainAnalysisResult {
+export function analyzeRuleDomain(input: string): RuleAnalysis {
   const normalized = normalizeInput(input);
   const domainPattern = /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,24}$/;
 
@@ -294,31 +393,50 @@ export function analyzeDomain(input: string): DomainAnalysisResult {
     tldStrength: scoreTldStrength(tld, reasons, weaknesses),
     length: scoreLength(name, reasons, weaknesses),
     brandability: scoreBrandability(name, reasons, weaknesses),
-    keywordTrend: scoreKeywordTrend(name, reasons, weaknesses),
+    memorability: scoreMemorability(name, reasons, weaknesses),
+    pronounceability: scorePronounceability(name, reasons, weaknesses),
+    premiumBrandSignal: scorePremiumBrandSignal(name, tld, reasons, weaknesses),
+    trendRelevance: scoreKeywordTrend(name, reasons, weaknesses),
     commercialIntent: scoreCommercialIntent(name, reasons, weaknesses),
     riskPenalties: scoreRiskPenalties(name, reasons, weaknesses),
   };
 
+  // Combine weighted components for an overall investment-oriented score
   const weightedTotal =
-    breakdown.tldStrength +
-    breakdown.length +
-    breakdown.brandability +
-    breakdown.keywordTrend +
-    breakdown.commercialIntent -
-    breakdown.riskPenalties;
+    breakdown.tldStrength * 1.0 +
+    breakdown.length * 0.9 +
+    breakdown.brandability * 1.1 +
+    breakdown.memorability * 1.0 +
+    breakdown.pronounceability * 0.9 +
+    breakdown.premiumBrandSignal * 1.4 +
+    breakdown.trendRelevance * 0.8 +
+    breakdown.commercialIntent * 0.9 -
+    breakdown.riskPenalties * 1.2;
 
-  const finalScore = clamp(weightedTotal, 0, 100);
+  const ruleScore = clamp(Math.round(weightedTotal), 0, 100);
 
   return {
     domain: normalized,
     name,
     tld,
-    score: finalScore,
-    availabilityStatus: getMockAvailabilityStatus(normalized),
+    ruleScore,
     breakdown,
-    verdict: getVerdict(finalScore),
-    riskLevel: getRiskLevel(finalScore),
     reasons,
     weaknesses,
   };
 }
+
+export function getVerdictFromScore(score: number): ApiAnalysisResponse["verdict"] {
+  if (score >= 85) return "Premium Potential";
+  if (score >= 70) return "High Potential";
+  if (score >= 50) return "Moderate Potential";
+  return "Low Potential";
+}
+
+export function getRiskFromScore(score: number): ApiAnalysisResponse["riskLevel"] {
+  if (score >= 80) return "Low";
+  if (score >= 55) return "Medium";
+  return "High";
+}
+
+export const STRONG_TLDS_MAP = STRONG_TLDS;

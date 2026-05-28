@@ -2,14 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  analyzeDomain,
-  type DomainAnalysisResult,
-} from "@/lib/domainAnalyzer";
 
-function labelForAvailability(
-  availabilityStatus: DomainAnalysisResult["availabilityStatus"],
-) {
+type ApiResult = {
+  domain: string;
+  score: number;
+  ruleScore: number;
+  marketScore: number;
+  availabilityStatus: "Available" | "Taken" | "Unknown";
+  estimatedValueUsd: number;
+  verdict: "Low Potential" | "Moderate Potential" | "High Potential" | "Premium Potential";
+  riskLevel: "Low" | "Medium" | "High";
+  reasons: string[];
+  weaknesses: string[];
+  marketData: any;
+  tld: string;
+  name: string;
+  breakdown: Record<string, number>;
+  comparableSalesCount: number;}
+ 
+
+function labelForAvailability(availabilityStatus: "Available" | "Taken" | "Unknown") {
   if (availabilityStatus === "Available") {
     return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
   }
@@ -21,25 +33,31 @@ function labelForAvailability(
   return "border-amber-500/20 bg-amber-500/10 text-amber-300";
 }
 
-const BREAKDOWN_LABELS: Record<keyof DomainAnalysisResult["breakdown"], string> = {
+const BREAKDOWN_LABELS: Record<string, string> = {
   tldStrength: "TLD strength",
   length: "Length",
   brandability: "Brandability",
-  keywordTrend: "Keyword trend",
+  memorability: "Memorability",
+  pronounceability: "Pronounceability",
+  premiumBrandSignal: "Premium brand signal",
+  trendRelevance: "Trend relevance",
   commercialIntent: "Commercial intent",
   riskPenalties: "Risk penalties",
 };
 
-const BREAKDOWN_MAX: Record<keyof DomainAnalysisResult["breakdown"], number> = {
+const BREAKDOWN_MAX: Record<string, number> = {
   tldStrength: 20,
   length: 20,
   brandability: 20,
-  keywordTrend: 15,
+  memorability: 15,
+  pronounceability: 15,
+  premiumBrandSignal: 20,
+  trendRelevance: 15,
   commercialIntent: 15,
   riskPenalties: 20,
 };
 
-function labelForRisk(riskLevel: DomainAnalysisResult["riskLevel"]) {
+function labelForRisk(riskLevel: "Low" | "Medium" | "High") {
   if (riskLevel === "Low") {
     return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
   }
@@ -53,13 +71,24 @@ function labelForRisk(riskLevel: DomainAnalysisResult["riskLevel"]) {
 
 export default function AnalyzePage() {
   const [input, setInput] = useState("");
-  const [result, setResult] = useState<DomainAnalysisResult | null>(null);
+  const [result, setResult] = useState<ApiResult | null>(null);
   const [error, setError] = useState("");
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     try {
-      const analysis = analyzeDomain(input);
-      setResult(analysis);
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: input }),
+      });
+
+      if (!res.ok) {
+        const payload = await res.json();
+        throw new Error(payload?.error || "Analysis failed");
+      }
+
+      const json: ApiResult = await res.json();
+      setResult(json);
       setError("");
     } catch (caughtError) {
       setResult(null);
@@ -167,7 +196,7 @@ export default function AnalyzePage() {
                     What it scores
                   </p>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    TLD strength, length, brandability, market keywords, commercial intent, and risk penalties.
+                    TLD strength, length, brandability, memorability, pronounceability, premium brand signal, trend relevance, commercial intent, and risk penalties.
                   </p>
                 </div>
                 <div className="panel-subtle rounded-2xl p-4">
@@ -231,6 +260,14 @@ export default function AnalyzePage() {
                           style={{ width: `${Math.max(10, result.score)}%` }}
                         />
                       </div>
+                      <div className="mt-4 flex items-center justify-center gap-3">
+                        <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-200">
+                          Rule {result.ruleScore}
+                        </div>
+                        <div className="rounded-full border border-sky-500/20 bg-sky-500/8 px-3 py-1 text-sm font-medium text-sky-200">
+                          Market {result.marketScore}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -268,6 +305,22 @@ export default function AnalyzePage() {
                       {result.availabilityStatus}
                     </dd>
                   </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Estimated value
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      ${result.estimatedValueUsd?.toLocaleString?.() ?? result.estimatedValueUsd}
+                    </dd>
+                  </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Comparable sales
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      {result.marketData?.comparableSalesCount ?? result.comparableSalesCount ?? 0}
+                    </dd>
+                  </div>
                 </dl>
 
                 <section className="panel-strong rounded-2xl p-5">
@@ -289,6 +342,9 @@ export default function AnalyzePage() {
                         Availability checking is currently mocked for product-flow
                         purposes and will later be connected to a real domain
                         registrar or WHOIS API.
+                      </p>
+                      <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
+                        Market data is mocked in this MVP and structured for future integration with NameBio, GoDaddy GoValue, or registrar APIs.
                       </p>
                     </div>
                     {result.availabilityStatus === "Available" ? (
@@ -326,11 +382,8 @@ export default function AnalyzePage() {
                     </p>
                   </div>
                   <div className="mt-4 grid gap-3 xl:grid-cols-2">
-                    {(
-                      Object.entries(result.breakdown) as Array<
-                        [keyof DomainAnalysisResult["breakdown"], number]
-                      >
-                    ).map(([key, value]) => {
+                    {(Object.entries(result.breakdown || {}) as Array<[string, number]>).map(
+                      ([key, value]) => {
                       const isPenalty = key === "riskPenalties";
                       const max = BREAKDOWN_MAX[key];
                       const width = Math.max(8, (value / max) * 100);
