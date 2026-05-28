@@ -149,152 +149,183 @@ Analyzes a domain and returns a comprehensive scoring report.
   "comparableSalesCount": 8,
   "resaleStatus": "possibly_listed",
   "detectedMarketplace": "Sedo",
-  "resaleConfidence": "medium",
-  "marketplaceLinks": { "sedo": "...", "godaddy": "..." },
-  "registrar": "GoDaddy",
-  "expiresAt": "2026-12-31T23:59:59Z",
-  "verdict": "High Potential",
-  "riskLevel": "Low",
-  "reasons": [...],
-  "weaknesses": [...],
-  "breakdown": {
-    "tldStrength": 20,
-    "length": 15,
-    "brandability": 18,
-    "memorability": 14,
-    "pronounceability": 12,
-    "premiumBrandSignal": 0,
-    "trendRelevance": 8,
-    "commercialIntent": 12,
-    "registrationHistory": 5,
-    "riskPenalties": 0
+  # Domain Flip
+
+  Domain Flip is a domain intelligence workspace for valuation, resale detection, availability checks, and watchlist tracking.
+
+  The app now uses a DomainTools-inspired editorial UI: light gray surfaces, strong black borders, lime highlights, and periwinkle CTAs.
+
+  ## What it does
+
+  ### Domain analysis
+  - Rule-based scoring across 10+ categories
+  - RDAP lookup for registrar, creation date, expiry, and status flags
+  - Market signal blending from deterministic mock data
+  - Comparisons between two domains
+  - A breakdown of what raised or lowered the score
+
+  ### Valuation realism
+  - TLD market weight system to keep .com, .ai, .io, .co, and ccTLDs in realistic ranges
+  - Liquidity adjustment so stronger extensions remain easier to resell
+  - Sanity checks that prevent weak ccTLDs from outranking stronger .com names without support
+  - Both raw appraisals and adjusted market estimates are exposed in the API and UI
+
+  ### Resale detection
+  - Detects aftermarket signals on landing pages
+  - Identifies bot protection, marketplace keywords, and listing hints
+  - Returns confidence levels: high, medium, low
+  - Provides verification links for major marketplaces
+
+  ### Watchlist
+  - localStorage-backed watchlist for the MVP
+  - Add taken domains from the analyzer
+  - Recheck one item or all items at once
+  - Stores score, estimated value, registrar, expiry, and timestamps
+
+  ### Landing page
+  - Market insights section
+  - TLD benchmark cards
+  - Lifecycle workflow blocks
+  - Clean, data-heavy layout with a technical editorial feel
+
+  ## Stack
+
+  - Next.js 16 App Router
+  - TypeScript
+  - Tailwind CSS
+  - Recharts
+  - Serverless API route for analysis
+  - RDAP lookups via public domain data sources
+
+  ## Main routes
+
+  - / — landing page with market insights
+  - /analyze — analyzer and comparison workspace
+  - /watchlist — tracked domains board
+  - /api/analyze — analysis endpoint
+
+  ## Analysis pipeline
+
+  The analysis route normalizes a domain, then combines:
+
+  1. Rule-based scoring
+  2. Mock market data
+  3. RDAP data
+  4. Resale detection
+  5. TLD-weighted valuation adjustment
+
+  The final response includes:
+
+  - score
+  - ruleScore
+  - marketScore
+  - investmentScore
+  - estimatedValueUsd
+  - tldMarketAnchorUsd
+  - adjustedEstimatedValueUsd
+  - liquidityScore
+  - verdict
+  - riskLevel
+  - reasons
+  - weaknesses
+  - breakdown
+  - RDAP metadata
+  - resale status and marketplace links
+  - investment report and value projection
+
+  ## Scoring model
+
+  The analyzer evaluates domains using categories such as:
+
+  - TLD strength
+  - Length
+  - Brandability
+  - Memorability
+  - Pronounceability
+  - Premium brand signal
+  - Trend relevance
+  - Commercial intent
+  - Registration history
+  - Risk penalties
+
+  The final score is blended from rule-based and market-based signals, then capped or normalized when the name looks unrealistic.
+
+  ## Watchlist schema
+
+  ```ts
+  {
+    domain: string;
+    score: number;
+    availabilityStatus: "Available" | "Taken" | "Unknown";
+    resaleStatus?: "not_listed" | "listed_for_sale" | "possibly_listed" | "needs_verification" | "unknown";
+    estimatedValueUsd?: number | null;
+    registrar?: string | null;
+    expiresAt?: string | null;
+    addedAt: string;
+    lastCheckedAt: string;
   }
-}
-```
+  ```
 
-## Scoring Breakdown
+  ## Project structure
 
-The analyzer evaluates domains across these weighted categories:
+  ```text
+  src/
+  ├── app/
+  │   ├── page.tsx
+  │   ├── analyze/page.tsx
+  │   ├── watchlist/page.tsx
+  │   ├── api/analyze/route.ts
+  │   └── globals.css
+  ├── components/
+  │   ├── Navbar.tsx
+  │   ├── Footer.tsx
+  │   ├── DomainComparisonChart.tsx
+  │   └── ValueProjectionChart.tsx
+  └── lib/
+      ├── domainAnalyzer.ts
+      ├── domainMarketplace.ts
+      ├── domainAvailability.ts
+      ├── mockMarketData.ts
+      ├── rdap.ts
+      ├── watchlist.ts
+      ├── investmentReport.ts
+      └── valueProjection.ts
+  ```
 
-| Category | Max | Description |
-|----------|-----|-------------|
-| TLD Strength | 20 | Premium vs generic TLDs |
-| Length | 20 | Shorter domains score higher |
-| Brandability | 20 | How well it works as a brand |
-| Memorability | 15 | Easy to remember and spell |
-| Pronounceability | 15 | How naturally it speaks |
-| Premium Brand Signal | 20 | Matches known premium domains |
-| Trend Relevance | 15 | Alignment with current trends |
-| Commercial Intent | 15 | Buyer intent and market demand |
-| Registration History | 10 | Age and renewal status |
-| Risk Penalties | 20 | Deductions for hyphens, numbers, etc. |
+  ## Scripts
 
-Final score = (rule_score × 0.6) + (market_score × 0.4) + registration_history
+  ```bash
+  pnpm dev
+  pnpm build
+  pnpm start
+  pnpm lint
+  ```
 
-## Watchlist
+  ## Getting started
 
-### localStorage Schema
-```typescript
-{
-  domain: string;
-  score: number;
-  availabilityStatus: "Available" | "Taken" | "Unknown";
-  resaleStatus?: "not_listed" | "listed_for_sale" | "possibly_listed" | "needs_verification" | "unknown";
-  estimatedValueUsd?: number | null;
-  registrar?: string | null;
-  expiresAt?: string | null;
-  addedAt: string;  // ISO timestamp
-  lastCheckedAt: string;  // ISO timestamp
-}
-```
+  ```bash
+  pnpm install
+  pnpm dev
+  ```
 
-### Operations
-- **Add**: Click "Notify when available" on any taken/listed domain
-- **Recheck**: Update single item or all items with latest analysis
-- **Remove**: Delete from watchlist
-- **View**: See all tracked domains, their scores, and status
+  Then open http://localhost:3000.
 
-## Free External Data Sources
+  ## Design system
 
-The app uses only free and public data:
+  - Background: #ECECEA
+  - Cards: #F3F3F1
+  - Text: #111111
+  - Borders: strong black, 2px
+  - Accent lime: #B8FF2C
+  - CTA purple: #7385F6
 
-- **RDAP**: [https://rdap.org](https://rdap.org) — Domain registration status, registrar, dates, ICANN standardized
-- **Wayback Machine**: Optional future enhancement for historical domain snapshots
-- **Cloudflare DoH**: Alternative DNS lookups and nameserver resolution
-- **NameBio**: Manual marketplace research tool (for user reference)
+  ## Notes
 
-No paid APIs or subscriptions required.
+  - This is an MVP.
+  - Market data is heuristic.
+  - Watchlist persistence currently uses localStorage.
+  - The project is structured so a database and cron-based alerts can be added later.
 
-## Future Enhancements
+  ## License
 
-### Short-term
-- [ ] Marketplace price extraction heuristics
-- [ ] Historical snapshot tracking via Wayback Machine API
-- [ ] DNS nameserver analysis
-- [ ] Bulk domain upload (CSV)
-
-### Long-term
-- [ ] User authentication and accounts
-- [ ] PostgreSQL/MongoDB backend for watchlist
-- [ ] Scheduled cron jobs for daily domain checks
-- [ ] Email notifications on status changes
-- [ ] Advanced historical pricing trends
-- [ ] AI-powered domain recommendations
-- [ ] Paid premium features (benchmarking, alerts, exports)
-
-## Scheduled Job Architecture (Future)
-
-When moving to production, the watchlist notification system will use:
-
-```
-┌─────────────────┐
-│   Watchlist DB  │
-│  (PostgreSQL)   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Cron Job (1x/d)│  (0:00 UTC)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Batch RDAP API  │
-│ Marketplace scan│
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Change Detection│
-│ (availability,  │
-│  expiry < 45d)  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Email Service   │
-│ (SendGrid/AWS)  │
-└─────────────────┘
-```
-
-## Styling
-
-The app uses a dark professional design with:
-- **Color palette**: Slate grays, cyan accents, minimal white
-- **Typography**: Semibold headers, structured hierarchy
-- **Spacing**: Generous padding and clean layout
-- **Responsive**: Mobile-first, optimized for mobile/tablet/desktop
-- **No gradients**: Solid colors and subtle transparency
-- **No emojis**: Professional, business-focused UI
-
-## Contributing
-
-Contributions are welcome! Please:
-1. Create a feature branch
-2. Make focused changes
-3. Test locally with `npm run dev`
-4. Submit a pull request
-
-## License
-
-MIT
+  MIT
