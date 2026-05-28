@@ -3,6 +3,7 @@ export type DomainAnalysisResult = {
   name: string;
   tld: string;
   score: number;
+  breakdown: DomainScoreBreakdown;
   verdict:
     | "Low Potential"
     | "Moderate Potential"
@@ -11,6 +12,15 @@ export type DomainAnalysisResult = {
   riskLevel: "Low" | "Medium" | "High";
   reasons: string[];
   weaknesses: string[];
+};
+
+export type DomainScoreBreakdown = {
+  tldStrength: number;
+  length: number;
+  brandability: number;
+  keywordTrend: number;
+  commercialIntent: number;
+  riskPenalties: number;
 };
 
 const STRONG_TLDS: Record<string, number> = {
@@ -66,6 +76,8 @@ const BRANDABLE_SUFFIXES = [
   "nest",
 ];
 
+const BRANDABLE_PREFIXES = ["get", "go", "try", "meta", "true", "clear"];
+
 function normalizeInput(input: string) {
   return input
     .trim()
@@ -109,10 +121,154 @@ function uniqueCharactersRatio(name: string) {
   return new Set(name).size / name.length;
 }
 
+function scoreTldStrength(tld: string, reasons: string[], weaknesses: string[]) {
+  const score = STRONG_TLDS[tld] ?? 4;
+
+  if (STRONG_TLDS[tld]) {
+    reasons.push(`Strong .${tld} extension with recognizable resale demand.`);
+  } else if (tld.length <= 3) {
+    reasons.push(`.${tld} is serviceable, but not a top-tier aftermarket extension.`);
+  } else {
+    weaknesses.push(`.${tld} is a weaker extension for broad resale liquidity.`);
+  }
+
+  return clamp(score, 0, 20);
+}
+
+function scoreLength(name: string, reasons: string[], weaknesses: string[]) {
+  const compactName = name.replace(/\./g, "");
+  const length = compactName.length;
+
+  if (length <= 4) {
+    reasons.push("Ultra-short names are rare and highly memorable.");
+    return 20;
+  }
+
+  if (length <= 6) {
+    reasons.push("Short length supports memorability and buyer appeal.");
+    return 17;
+  }
+
+  if (length <= 9) {
+    reasons.push("The name is compact enough for strong everyday usability.");
+    return 13;
+  }
+
+  if (length <= 12) {
+    reasons.push("The length is acceptable, though less premium than shorter names.");
+    return 9;
+  }
+
+  if (length <= 16) {
+    weaknesses.push("Longer names are harder to brand and resell efficiently.");
+    return 5;
+  }
+
+  weaknesses.push("Very long names typically weaken recall and resale value.");
+  return 1;
+}
+
+function scoreBrandability(name: string, reasons: string[], weaknesses: string[]) {
+  const compactName = name.replace(/\./g, "");
+  let score = 0;
+
+  if (isBrandable(compactName)) {
+    score += 9;
+    reasons.push("The name has strong pronounceability and brand-shape characteristics.");
+  } else {
+    weaknesses.push("The name is less naturally brandable under the current rules.");
+  }
+
+  const uniqueRatio = uniqueCharactersRatio(compactName);
+  if (uniqueRatio >= 0.72) {
+    score += 4;
+    reasons.push("Character variety helps the name feel distinct.");
+  } else if (uniqueRatio < 0.45) {
+    weaknesses.push("Repetitive character patterns can reduce clarity.");
+  }
+
+  if (BRANDABLE_SUFFIXES.some((suffix) => compactName.endsWith(suffix))) {
+    score += 3;
+    reasons.push("The ending pattern fits common modern brand naming styles.");
+  } else if (BRANDABLE_PREFIXES.some((prefix) => compactName.startsWith(prefix))) {
+    score += 2;
+    reasons.push("The prefix gives the domain a familiar startup naming structure.");
+  }
+
+  return clamp(score, 0, 20);
+}
+
+function scoreKeywordTrend(name: string, reasons: string[], weaknesses: string[]) {
+  const compactName = name.replace(/\./g, "");
+  const trendHits = TRENDING_KEYWORDS.filter((keyword) => compactName.includes(keyword));
+
+  if (trendHits.length === 0) {
+    weaknesses.push("No meaningful trend keywords were detected.");
+    return 4;
+  }
+
+  const score = Math.min(15, 6 + trendHits.length * 3);
+  reasons.push(
+    `Trend alignment detected through ${trendHits
+      .map((keyword) => `"${keyword}"`)
+      .join(", ")}.`,
+  );
+
+  return score;
+}
+
+function scoreCommercialIntent(name: string, reasons: string[], weaknesses: string[]) {
+  const compactName = name.replace(/\./g, "");
+  const commercialHits = COMMERCIAL_KEYWORDS.filter((keyword) =>
+    compactName.includes(keyword),
+  );
+
+  if (commercialHits.length === 0) {
+    weaknesses.push("Commercial buyer-intent signals are limited.");
+    return 5;
+  }
+
+  const score = Math.min(15, 7 + commercialHits.length * 4);
+  reasons.push(
+    "Commercial wording suggests clearer business use cases and buyer demand.",
+  );
+
+  return score;
+}
+
+function scoreRiskPenalties(name: string, reasons: string[], weaknesses: string[]) {
+  const compactName = name.replace(/\./g, "");
+  let penalty = 0;
+
+  if (name.includes(".")) {
+    penalty += 4;
+    weaknesses.push("Multiple segments make the domain feel less clean and direct.");
+  }
+
+  if (compactName.includes("-")) {
+    penalty += 8;
+    weaknesses.push("Hyphens often reduce trust and aftermarket appeal.");
+  } else {
+    reasons.push("No hyphens keeps the domain cleaner and more premium.");
+  }
+
+  if (/\d/.test(compactName)) {
+    penalty += 7;
+    weaknesses.push("Numbers can make the name harder to remember and market.");
+  } else {
+    reasons.push("No numbers improves readability and brand credibility.");
+  }
+
+  if (/[^a-z0-9.-]/.test(name)) {
+    penalty += 3;
+  }
+
+  return clamp(penalty, 0, 20);
+}
+
 export function analyzeDomain(input: string): DomainAnalysisResult {
   const normalized = normalizeInput(input);
-  const domainPattern =
-    /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,24}$/;
+  const domainPattern = /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,24}$/;
 
   if (!domainPattern.test(normalized)) {
     throw new Error("Enter a valid domain with a recognizable extension.");
@@ -126,102 +282,33 @@ export function analyzeDomain(input: string): DomainAnalysisResult {
     throw new Error("Enter a valid domain with a valid name and TLD.");
   }
 
-  let score = 40;
   const reasons: string[] = [];
   const weaknesses: string[] = [];
+  const breakdown: DomainScoreBreakdown = {
+    tldStrength: scoreTldStrength(tld, reasons, weaknesses),
+    length: scoreLength(name, reasons, weaknesses),
+    brandability: scoreBrandability(name, reasons, weaknesses),
+    keywordTrend: scoreKeywordTrend(name, reasons, weaknesses),
+    commercialIntent: scoreCommercialIntent(name, reasons, weaknesses),
+    riskPenalties: scoreRiskPenalties(name, reasons, weaknesses),
+  };
 
-  const tldBoost = STRONG_TLDS[tld] ?? 2;
-  score += tldBoost;
-  if (STRONG_TLDS[tld]) {
-    reasons.push(`Strong .${tld} extension with recognizable resale demand.`);
-  } else {
-    weaknesses.push(`.${tld} is less proven than top resale-focused extensions.`);
-  }
+  const weightedTotal =
+    breakdown.tldStrength +
+    breakdown.length +
+    breakdown.brandability +
+    breakdown.keywordTrend +
+    breakdown.commercialIntent -
+    breakdown.riskPenalties;
 
-  if (name.length <= 5) {
-    score += 18;
-    reasons.push("Very short name improves memorability and buyer appeal.");
-  } else if (name.length <= 8) {
-    score += 12;
-    reasons.push("Compact name supports better brand recall.");
-  } else if (name.length <= 12) {
-    score += 6;
-    reasons.push("Reasonable length keeps the domain usable for branding.");
-  } else if (name.length <= 16) {
-    score -= 4;
-    weaknesses.push("Longer names are harder to brand and resell.");
-  } else {
-    score -= 10;
-    weaknesses.push("Very long names usually reduce resale quality.");
-  }
-
-  if (!name.includes("-")) {
-    score += 6;
-    reasons.push("No hyphens keeps the name cleaner and more premium.");
-  } else {
-    score -= 10;
-    weaknesses.push("Hyphens often reduce trust and aftermarket value.");
-  }
-
-  if (!/\d/.test(name)) {
-    score += 5;
-    reasons.push("No numbers helps with readability and brand credibility.");
-  } else {
-    score -= 8;
-    weaknesses.push("Numbers can make the name harder to remember.");
-  }
-
-  if (isBrandable(name)) {
-    score += 12;
-    reasons.push("The name has solid brandability characteristics.");
-  } else {
-    score -= 5;
-    weaknesses.push("The name has weaker brandability signals.");
-  }
-
-  const trendHits = TRENDING_KEYWORDS.filter((keyword) => name.includes(keyword));
-  if (trendHits.length > 0) {
-    score += Math.min(10, trendHits.length * 4);
-    reasons.push(
-      `Trending keyword signal detected: ${trendHits
-        .map((keyword) => `"${keyword}"`)
-        .join(", ")}.`,
-    );
-  }
-
-  const commercialHits = COMMERCIAL_KEYWORDS.filter((keyword) =>
-    name.includes(keyword),
-  );
-  if (commercialHits.length > 0) {
-    score += Math.min(10, commercialHits.length * 5);
-    reasons.push(
-      "Commercial wording suggests stronger monetization or buyer intent.",
-    );
-  } else {
-    weaknesses.push("Limited commercial intent signals in the current name.");
-  }
-
-  const uniqueRatio = uniqueCharactersRatio(name.replace(/\./g, ""));
-  if (uniqueRatio >= 0.7) {
-    score += 4;
-    reasons.push("Character variety supports distinctiveness.");
-  } else if (uniqueRatio < 0.45) {
-    score -= 4;
-    weaknesses.push("Repetitive character patterns can weaken brand clarity.");
-  }
-
-  if (name.includes(".")) {
-    score -= 4;
-    weaknesses.push("Multiple subdomain-like segments reduce brand simplicity.");
-  }
-
-  const finalScore = clamp(score, 0, 100);
+  const finalScore = clamp(weightedTotal, 0, 100);
 
   return {
     domain: normalized,
     name,
     tld,
     score: finalScore,
+    breakdown,
     verdict: getVerdict(finalScore),
     riskLevel: getRiskLevel(finalScore),
     reasons,

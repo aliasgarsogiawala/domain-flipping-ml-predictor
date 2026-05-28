@@ -7,6 +7,24 @@ import {
   type DomainAnalysisResult,
 } from "@/lib/domainAnalyzer";
 
+const BREAKDOWN_LABELS: Record<keyof DomainAnalysisResult["breakdown"], string> = {
+  tldStrength: "TLD strength",
+  length: "Length",
+  brandability: "Brandability",
+  keywordTrend: "Keyword trend",
+  commercialIntent: "Commercial intent",
+  riskPenalties: "Risk penalties",
+};
+
+const BREAKDOWN_MAX: Record<keyof DomainAnalysisResult["breakdown"], number> = {
+  tldStrength: 20,
+  length: 20,
+  brandability: 20,
+  keywordTrend: 15,
+  commercialIntent: 15,
+  riskPenalties: 20,
+};
+
 function labelForRisk(riskLevel: DomainAnalysisResult["riskLevel"]) {
   if (riskLevel === "Low") {
     return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
@@ -177,6 +195,63 @@ export default function AnalyzePage() {
                     </dd>
                   </div>
                 </dl>
+
+                <section className="rounded-xl border border-white/8 bg-[color:var(--panel-strong)] p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      Score breakdown
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Positive categories add value. Risk penalties subtract from the final score.
+                    </p>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {(
+                      Object.entries(result.breakdown) as Array<
+                        [keyof DomainAnalysisResult["breakdown"], number]
+                      >
+                    ).map(([key, value]) => {
+                      const isPenalty = key === "riskPenalties";
+                      const max = BREAKDOWN_MAX[key];
+                      const width = Math.max(8, (value / max) * 100);
+
+                      return (
+                        <div
+                          key={key}
+                          className="rounded-lg border border-white/8 bg-zinc-950/40 p-4"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-medium text-slate-200">
+                                {BREAKDOWN_LABELS[key]}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {isPenalty ? "Deduction category" : "Positive scoring category"}
+                              </p>
+                            </div>
+                            <p
+                              className={`text-sm font-semibold ${
+                                isPenalty ? "text-red-300" : "text-slate-100"
+                              }`}
+                            >
+                              {isPenalty ? "-" : "+"}
+                              {value}
+                              <span className="ml-1 text-slate-500">/ {max}</span>
+                            </p>
+                          </div>
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/6">
+                            <div
+                              className={`h-full rounded-full ${
+                                isPenalty ? "bg-red-400/70" : "bg-slate-300/80"
+                              }`}
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   <section className="rounded-xl border border-white/8 bg-[color:var(--panel-strong)] p-5">
