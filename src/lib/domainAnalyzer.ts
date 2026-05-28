@@ -1,8 +1,14 @@
+import {
+  getMockAvailabilityStatus,
+  type DomainAvailabilityStatus,
+} from "@/lib/domainAvailability";
+
 export type DomainAnalysisResult = {
   domain: string;
   name: string;
   tld: string;
   score: number;
+  availabilityStatus: DomainAvailabilityStatus;
   breakdown: DomainScoreBreakdown;
   verdict:
     | "Low Potential"
@@ -308,6 +314,7 @@ export function analyzeDomain(input: string): DomainAnalysisResult {
     name,
     tld,
     score: finalScore,
+    availabilityStatus: getMockAvailabilityStatus(normalized),
     breakdown,
     verdict: getVerdict(finalScore),
     riskLevel: getRiskLevel(finalScore),

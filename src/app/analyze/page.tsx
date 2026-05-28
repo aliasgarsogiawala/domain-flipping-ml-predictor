@@ -7,6 +7,20 @@ import {
   type DomainAnalysisResult,
 } from "@/lib/domainAnalyzer";
 
+function labelForAvailability(
+  availabilityStatus: DomainAnalysisResult["availabilityStatus"],
+) {
+  if (availabilityStatus === "Available") {
+    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+  }
+
+  if (availabilityStatus === "Taken") {
+    return "border-slate-600 bg-slate-900 text-slate-200";
+  }
+
+  return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+}
+
 const BREAKDOWN_LABELS: Record<keyof DomainAnalysisResult["breakdown"], string> = {
   tldStrength: "TLD strength",
   length: "Length",
@@ -195,6 +209,52 @@ export default function AnalyzePage() {
                     </dd>
                   </div>
                 </dl>
+
+                <section className="rounded-xl border border-white/8 bg-[color:var(--panel-strong)] p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Domain availability
+                      </h3>
+                      <div className="mt-3 flex items-center gap-3">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-sm font-medium ${labelForAvailability(
+                            result.availabilityStatus,
+                          )}`}
+                        >
+                          {result.availabilityStatus}
+                        </span>
+                      </div>
+                    </div>
+                    {result.availabilityStatus === "Available" ? (
+                      <button
+                        type="button"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-5 text-sm font-semibold text-emerald-200 hover:border-emerald-400/30 hover:bg-emerald-500/15"
+                      >
+                        Register domain
+                      </button>
+                    ) : result.availabilityStatus === "Taken" ? (
+                      <button
+                        type="button"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-700 bg-zinc-950 px-5 text-sm font-semibold text-slate-100 hover:border-slate-500 hover:bg-zinc-900"
+                      >
+                        Notify when available
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-500/10 px-5 text-sm font-semibold text-amber-200 hover:border-amber-400/30 hover:bg-amber-500/15"
+                      >
+                        Check again later
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-4 text-sm leading-7 text-slate-400">
+                    Availability checking is currently mocked for product-flow
+                    purposes and will later be connected to a real domain
+                    registrar or WHOIS API.
+                  </p>
+                </section>
 
                 <section className="rounded-xl border border-white/8 bg-[color:var(--panel-strong)] p-5">
                   <div className="flex items-center justify-between gap-4">
