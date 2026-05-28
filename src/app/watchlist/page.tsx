@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { getWatchlist, removeFromWatchlist, recheckDomain, updateWatchlistItem } from "@/lib/watchlist";
 import type { WatchItem } from "@/lib/watchlist";
@@ -15,13 +15,9 @@ function formatDate(d?: string | null) {
 }
 
 export default function WatchlistPage() {
-  const [items, setItems] = useState<WatchItem[]>([]);
+  const [items, setItems] = useState<WatchItem[]>(() => getWatchlist());
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
   const [bulkLoading, setBulkLoading] = useState(false);
-
-  useEffect(() => {
-    setItems(getWatchlist());
-  }, []);
 
   function refreshFromStorage() {
     setItems(getWatchlist());
@@ -78,21 +74,29 @@ export default function WatchlistPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-8 lg:px-12">
-        <div className="flex items-center justify-between">
+    <main className="pb-16">
+      <div className="mx-auto w-full max-w-7xl">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-50">Domain Watchlist</h1>
-            <p className="mt-2 text-sm text-slate-400">Track taken domains and recheck availability over time.</p>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+              Portfolio monitoring
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-950">Domain watchlist</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              Track taken domains, refresh status, and keep expiry or registrar changes visible.
+            </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/analyze" className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:border-slate-500">
+            <Link
+              href="/analyze"
+              className="secondary-button inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium"
+            >
               Back to Analyzer
             </Link>
             <button
               onClick={handleRecheckAll}
               disabled={bulkLoading}
-              className="rounded-lg border border-cyan-600 bg-cyan-600/6 px-3 py-2 text-sm font-medium text-cyan-200 disabled:opacity-50"
+              className="accent-button inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
               {bulkLoading ? "Rechecking..." : "Recheck all"}
             </button>
@@ -101,26 +105,30 @@ export default function WatchlistPage() {
 
         <div className="mt-8">
           {items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-zinc-950/10 p-8 text-center">
-              <h2 className="text-lg font-semibold text-slate-100">No watched domains yet</h2>
-              <p className="mt-2 text-sm text-slate-400">Add a domain from the analyzer to start tracking it here.</p>
+            <div className="surface-strong rounded-3xl p-8 text-center">
+              <h2 className="text-lg font-semibold text-slate-950">No watched domains yet</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Add a domain from the analyzer to start tracking it here.
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {items.map((it) => (
-                <div key={it.domain} className="panel rounded-2xl p-4">
+                <div key={it.domain} className="surface-strong rounded-3xl p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{it.domain}</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-100">Score: {it.score}</p>
-                      <p className="mt-2 text-sm text-slate-400">Registrar: {it.registrar ?? "-"}</p>
-                      <p className="mt-1 text-sm text-slate-400">Expires: {formatDate(it.expiresAt)}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-950">Score: {it.score}</p>
+                      <p className="mt-2 text-sm text-slate-600">Registrar: {it.registrar ?? "-"}</p>
+                      <p className="mt-1 text-sm text-slate-600">Expires: {formatDate(it.expiresAt)}</p>
                     </div>
 
                     <div className="flex flex-col items-end gap-3">
-                      <div className="text-sm text-slate-300">Status: {it.availabilityStatus}</div>
-                      <div className="text-sm text-slate-300">Resale: {it.resaleStatus ?? "-"}</div>
-                      <div className="text-sm text-slate-300">Value: {it.estimatedValueUsd ? `$${it.estimatedValueUsd.toLocaleString()}` : "-"}</div>
+                      <div className="text-sm text-slate-700">Status: {it.availabilityStatus}</div>
+                      <div className="text-sm text-slate-700">Resale: {it.resaleStatus ?? "-"}</div>
+                      <div className="text-sm text-slate-700">
+                        Value: {it.estimatedValueUsd ? `$${it.estimatedValueUsd.toLocaleString()}` : "-"}
+                      </div>
                     </div>
                   </div>
 
@@ -128,17 +136,19 @@ export default function WatchlistPage() {
                     <button
                       onClick={() => handleRecheck(it.domain)}
                       disabled={!!loadingMap[it.domain]}
-                      className="rounded-xl border border-slate-700 bg-zinc-950 px-4 py-2 text-sm font-medium text-slate-100 disabled:opacity-50"
+                      className="secondary-button rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
                     >
                       {loadingMap[it.domain] ? "Checking..." : "Recheck status"}
                     </button>
                     <button
                       onClick={() => handleRemove(it.domain)}
-                      className="rounded-xl border border-rose-700 px-3 py-2 text-sm font-medium text-rose-300"
+                      className="rounded-xl border border-[#fecaca] bg-[#fef3f2] px-3 py-2 text-sm font-medium text-[#b42318]"
                     >
                       Remove
                     </button>
-                    <div className="ml-auto text-xs text-slate-400">Added: {formatDate(it.addedAt)} · Last checked: {formatDate(it.lastCheckedAt)}</div>
+                    <div className="ml-auto text-xs text-slate-500">
+                      Added: {formatDate(it.addedAt)} · Last checked: {formatDate(it.lastCheckedAt)}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -146,9 +156,9 @@ export default function WatchlistPage() {
           )}
         </div>
 
-        <section className="mt-8 panel-subtle rounded-2xl p-4">
-          <h3 className="text-sm font-semibold text-slate-200">Future automatic alerts</h3>
-          <p className="mt-2 text-sm text-slate-400">
+        <section className="surface rounded-3xl p-5 mt-8">
+          <h3 className="text-sm font-semibold text-slate-900">Future automatic alerts</h3>
+          <p className="mt-2 text-sm text-slate-600">
             Automatic alerts are planned. In production a scheduled job will check watched domains daily and notify users when availability, expiry, or resale status changes.
           </p>
           <div className="mt-3 text-xs text-slate-500">

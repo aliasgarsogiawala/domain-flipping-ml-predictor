@@ -5,6 +5,8 @@ export type ResaleStatus =
   | "needs_verification"
   | "unknown";
 
+export type MarketplaceStatus = "available" | "taken" | "unknown";
+
 function normalizeDomain(input: string) {
   return input
     .trim()

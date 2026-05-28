@@ -1,293 +1,300 @@
 import Link from "next/link";
 
-const features = [
+const featureCards = [
   {
-    title: "Domain scoring",
+    title: "Intelligence scoring",
     description:
-      "Evaluate candidate domains with a structured score built around resale-oriented signals.",
+      "Review naming quality, extension strength, registration history, and commercial relevance in one structured score.",
   },
   {
-    title: "Brandability analysis",
+    title: "Availability workflow",
     description:
-      "Assess memorability, naming quality, and whether a domain feels commercially usable.",
+      "Check RDAP-backed ownership status, registrar data, and domain lifecycle details before you act.",
   },
   {
-    title: "TLD evaluation",
+    title: "Portfolio tracking",
     description:
-      "Compare extension strength across established and modern domain categories.",
+      "Monitor candidate domains, watch resale signals, and keep high-conviction names organized.",
   },
   {
-    title: "Investment reasoning",
+    title: "Market context",
     description:
-      "Review strengths and weaknesses behind each score before making a buying decision.",
+      "Pair domain quality with lightweight market heuristics so decisions feel grounded instead of speculative.",
   },
+];
+
+const portfolioRows = [
+  ["northforge.ai", "High Potential", "Taken", "Cloudflare Registrar", "84"],
+  ["marketgrid.com", "Premium Potential", "Taken", "GoDaddy", "89"],
+  ["paymint.co", "Moderate Potential", "Available", "Not registered", "68"],
+  ["agentstack.io", "High Potential", "Taken", "Namecheap", "79"],
 ];
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 sm:px-8 lg:px-12">
-        
-
-        <section className="grid flex-1 items-center gap-16 py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:py-24">
-          <div className="max-w-3xl">
-            <p className="mb-5 text-sm font-medium uppercase tracking-[0.28em] text-slate-500">
-              Domain investment analytics
-            </p>
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-50 sm:text-5xl lg:text-6xl">
-              Analyze domain names before you invest.
+    <main className="pb-16">
+      <section className="dashboard-grid rounded-[28px] border border-[#e6e7eb] bg-[#f2ede6] px-6 py-8 sm:px-8 lg:px-10">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] lg:items-start">
+          <div className="pt-4">
+            <div className="inline-flex rounded-full border border-[#e7d8cb] bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.22em] text-slate-600">
+              Premium domain intelligence platform
+            </div>
+            <h1 className="mt-6 max-w-4xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+              Analyze, monitor, and track valuable domains with registrar-grade clarity.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              DomainFlip AI gives early-stage investors a fast way to review
-              brandability, TLD strength, keyword signals, name length, and
-              commercial potential before buying a domain.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+              DomainFlip AI combines domain screening, availability lookup, registration history,
+              and portfolio-style monitoring into a clean workflow inspired by modern registrar dashboards.
             </p>
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/analyze"
-                className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-950 shadow-sm hover:bg-white"
+                className="accent-button inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-medium"
               >
-                Start analyzing
+                Open analyzer
               </Link>
               <a
-                href="#features"
-                className="inline-flex items-center justify-center rounded-lg border border-slate-800 bg-transparent px-5 py-3 text-sm font-medium text-slate-300 hover:border-slate-600 hover:text-slate-100"
+                href="#portfolio"
+                className="secondary-button inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-medium"
               >
-                Review features
+                View platform preview
               </a>
             </div>
-            <div className="mt-12 grid gap-4 sm:grid-cols-3">
-              <div className="panel-subtle rounded-2xl p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">
+
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="surface rounded-2xl p-5">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                  Coverage
+                </p>
+                <p className="mt-3 text-3xl font-semibold text-slate-950">RDAP</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Live ownership and registration timeline data.
+                </p>
+              </div>
+              <div className="surface rounded-2xl p-5">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
                   Scoring model
                 </p>
-                <p className="mt-3 text-2xl font-semibold text-slate-100">6 signals</p>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  TLD quality, brandability, length, trend relevance, intent, and risk.
+                <p className="mt-3 text-3xl font-semibold text-slate-950">10 signals</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Brand, length, market intent, and lifecycle quality.
                 </p>
               </div>
-              <div className="panel-subtle rounded-2xl p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">
-                  Output style
+              <div className="surface rounded-2xl p-5">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                  Workspace
                 </p>
-                <p className="mt-3 text-2xl font-semibold text-slate-100">Transparent</p>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Every score is broken down so investment reasoning stays clear.
-                </p>
-              </div>
-              <div className="panel-subtle rounded-2xl p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">
-                  Product state
-                </p>
-                <p className="mt-3 text-2xl font-semibold text-slate-100">MVP</p>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Rule-based today, ready for deeper data and ML upgrades later.
+                <p className="mt-3 text-3xl font-semibold text-slate-950">Portfolio-first</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Built for repeated screening and tracking, not one-off novelty checks.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="panel rounded-3xl p-6 lg:p-7">
-            <div className="panel-strong rounded-2xl p-6">
-              <div className="flex items-start justify-between border-b border-white/8 pb-5">
+          <div className="surface-strong rounded-[28px] p-6">
+            <div className="flex items-center justify-between border-b border-[#eceef2] pb-4">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Dashboard preview</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                  Portfolio control center
+                </h2>
+              </div>
+              <div className="rounded-full border border-[#f2d7c0] bg-[#fff2e8] px-3 py-1 text-sm font-medium text-[#b54708]">
+                Live workflow
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="surface-muted rounded-2xl p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Analyzed
+                </p>
+                <p className="mt-2 text-xl font-semibold text-slate-950">primeagent.ai</p>
+                <p className="mt-1 text-sm text-slate-600">High brand quality with strong TLD fit</p>
+              </div>
+              <div className="surface-muted rounded-2xl p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Availability
+                </p>
+                <p className="mt-2 text-xl font-semibold text-slate-950">Taken</p>
+                <p className="mt-1 text-sm text-slate-600">Registrar and status data resolved</p>
+              </div>
+              <div className="surface-muted rounded-2xl p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Portfolio score
+                </p>
+                <p className="mt-2 text-xl font-semibold text-slate-950">84 / 100</p>
+                <p className="mt-1 text-sm text-slate-600">Balanced domain quality and market signals</p>
+              </div>
+              <div className="surface-muted rounded-2xl p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Registrar
+                </p>
+                <p className="mt-2 text-xl font-semibold text-slate-950">Namecheap</p>
+                <p className="mt-1 text-sm text-slate-600">Ownership metadata available</p>
+              </div>
+            </div>
+
+            <div className="mt-6 surface-muted rounded-2xl p-5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-slate-700">Score distribution</span>
+                <span className="text-slate-500">Rule 74 / Market 81</span>
+              </div>
+              <div className="mt-4 space-y-3">
                 <div>
-                  <p className="text-sm font-medium text-slate-400">
-                    Example analysis
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-slate-50">
-                    primeagent.ai
-                  </h2>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Investor-style screening snapshot
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-300">
-                    Brand Prestige 86
+                  <div className="flex items-center justify-between text-sm text-slate-600">
+                    <span>Brandability</span>
+                    <span>16 / 20</span>
                   </div>
-                  <div className="rounded-full border border-sky-500/20 bg-sky-500/8 px-3 py-1 text-sm font-medium text-sky-200">
-                    Investment 78
+                  <div className="mt-2 h-2 rounded-full bg-[#eceef2]">
+                    <div className="h-2 w-4/5 rounded-full bg-[#F48120]" />
                   </div>
                 </div>
-              </div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <div className="panel-subtle rounded-xl p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Verdict</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-100">Premium Potential</p>
-                </div>
-                <div className="panel-subtle rounded-xl p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Availability</p>
-                  <p className="mt-2 text-lg font-semibold text-emerald-300">Available</p>
-                </div>
-                <div className="panel-subtle rounded-xl p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">TLD</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-100">.ai</p>
-                </div>
-                <div className="panel-subtle rounded-xl p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Risk level</p>
-                  <p className="mt-2 text-lg font-semibold text-amber-300">Medium</p>
-                </div>
-              </div>
-              <div className="mt-6 grid gap-3">
-                <div className="panel-subtle rounded-xl p-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Brandability</span>
-                    <span className="font-medium text-slate-100">16 / 20</span>
+                <div>
+                  <div className="flex items-center justify-between text-sm text-slate-600">
+                    <span>TLD strength</span>
+                    <span>14 / 20</span>
                   </div>
-                  <div className="mt-3 h-2 rounded-full bg-white/6">
-                    <div className="h-2 w-4/5 rounded-full bg-slate-300/80" />
+                  <div className="mt-2 h-2 rounded-full bg-[#eceef2]">
+                    <div className="h-2 w-[70%] rounded-full bg-slate-700" />
                   </div>
                 </div>
-                <div className="panel-subtle rounded-xl p-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Commercial intent</span>
-                    <span className="font-medium text-slate-100">11 / 15</span>
+                <div>
+                  <div className="flex items-center justify-between text-sm text-slate-600">
+                    <span>Commercial intent</span>
+                    <span>11 / 15</span>
                   </div>
-                  <div className="mt-3 h-2 rounded-full bg-white/6">
-                    <div className="h-2 w-3/4 rounded-full bg-slate-300/80" />
+                  <div className="mt-2 h-2 rounded-full bg-[#eceef2]">
+                    <div className="h-2 w-[73%] rounded-full bg-slate-400" />
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section id="features" className="pb-16 lg:pb-24">
-          <div className="mb-8 flex items-end justify-between gap-6">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.22em] text-slate-500">
-                Core capabilities
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold text-slate-50 sm:text-3xl">
-                Built for practical domain screening
-              </h2>
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {features.map((feature, index) => (
-              <article
-                key={feature.title}
-                className="panel rounded-2xl p-6"
-              >
-                <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">
-                  0{index + 1}
-                </p>
-                <h3 className="text-lg font-semibold text-slate-50">
-                  {feature.title}
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-slate-400">
-                  {feature.description}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-        <section id="market-insights" className="pt-8 pb-16 lg:pt-12 lg:pb-24">
-          <div className="mb-8">
-            <p className="text-sm font-medium uppercase tracking-[0.22em] text-slate-500">
-              Market Insights
+      <section id="features" className="mt-10">
+        <div className="mb-6 flex items-end justify-between gap-6">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
+              Product capabilities
             </p>
-            <h2 className="mt-3 text-2xl font-semibold text-slate-50 sm:text-3xl">
-              TLD trends & quick stats
+            <h2 className="mt-2 text-3xl font-semibold text-slate-950">
+              Built like a modern registrar intelligence layer
             </h2>
           </div>
+        </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="panel-subtle rounded-2xl p-6 text-center">
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-400">
-                Most valuable extension
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {featureCards.map((feature) => (
+            <article key={feature.title} className="surface rounded-2xl p-6">
+              <div className="mb-5 h-9 w-9 rounded-lg border border-[#f2d7c0] bg-[#fff2e8]" />
+              <h3 className="text-lg font-semibold text-slate-950">{feature.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-slate-600">{feature.description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="portfolio" className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+        <div className="surface-strong rounded-3xl p-6">
+          <div className="flex flex-col gap-3 border-b border-[#eceef2] pb-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                Portfolio preview
               </p>
-              <p className="mt-4 text-3xl font-semibold text-slate-50">.com</p>
-              <p className="mt-2 text-sm text-slate-400">Premium resale & global businesses</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                Candidate domain workspace
+              </h2>
             </div>
-            <div className="panel-subtle rounded-2xl p-6 text-center">
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-400">
-                Fastest growing startup extension
-              </p>
-              <p className="mt-4 text-3xl font-semibold text-slate-50">.ai</p>
-              <p className="mt-2 text-sm text-slate-400">AI startups, automation, and tools</p>
-            </div>
-            <div className="panel-subtle rounded-2xl p-6 text-center">
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-400">
-                Popular SaaS extension
-              </p>
-              <p className="mt-4 text-3xl font-semibold text-slate-50">.io</p>
-              <p className="mt-2 text-sm text-slate-400">Developer-first SaaS and platform brands</p>
-            </div>
-            <div className="panel-subtle rounded-2xl p-6 text-center">
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-400">
-                Developer-focused extension
-              </p>
-              <p className="mt-4 text-3xl font-semibold text-slate-50">.dev</p>
-              <p className="mt-2 text-sm text-slate-400">Technical products and tooling</p>
-            </div>
+            <div className="text-sm text-slate-500">Tracked names, availability, and score confidence</div>
           </div>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <div className="panel rounded-2xl p-6">
-              <p className="text-sm font-medium uppercase tracking-[0.16em] text-slate-500">TLD comparison</p>
-              <div className="mt-4 w-full overflow-x-auto">
-                <table className="w-full table-fixed text-left">
-                  <thead>
-                    <tr className="text-sm text-slate-400">
-                      <th className="w-1/4 pr-4 pb-2">TLD</th>
-                      <th className="w-1/4 pr-4 pb-2">Strength</th>
-                      <th className="pr-4 pb-2">Common usage</th>
-                    </tr>
-                  </thead>
-                  <tbody className="mt-2 divide-y divide-white/6 text-sm">
-                    <tr>
-                      <td className="py-3 text-slate-100">.com</td>
-                      <td className="py-3 text-slate-200">Very High</td>
-                      <td className="py-3 text-slate-400">Used for businesses, startups, premium resale</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-slate-100">.ai</td>
-                      <td className="py-3 text-slate-200">High</td>
-                      <td className="py-3 text-slate-400">Used for AI startups, automation, AI tools</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-slate-100">.io</td>
-                      <td className="py-3 text-slate-200">High</td>
-                      <td className="py-3 text-slate-400">Used for SaaS, developer tools, tech products</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-slate-100">.co</td>
-                      <td className="py-3 text-slate-200">Medium-High</td>
-                      <td className="py-3 text-slate-400">Used for startups and .com alternatives</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-slate-100">.dev</td>
-                      <td className="py-3 text-slate-200">Medium</td>
-                      <td className="py-3 text-slate-400">Used for developer tools and technical products</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-slate-100">.app</td>
-                      <td className="py-3 text-slate-200">Medium</td>
-                      <td className="py-3 text-slate-400">Used for apps and consumer products</td>
-                    </tr>
-                  </tbody>
-                </table>
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead>
+                <tr className="border-b border-[#eceef2] text-xs uppercase tracking-[0.18em] text-slate-500">
+                  <th className="px-2 py-3 font-medium">Domain</th>
+                  <th className="px-2 py-3 font-medium">Verdict</th>
+                  <th className="px-2 py-3 font-medium">Availability</th>
+                  <th className="px-2 py-3 font-medium">Registrar</th>
+                  <th className="px-2 py-3 font-medium">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {portfolioRows.map((row) => (
+                  <tr key={row[0]} className="border-b border-[#f1f2f5] text-sm last:border-b-0">
+                    <td className="px-2 py-4 font-medium text-slate-900">{row[0]}</td>
+                    <td className="px-2 py-4 text-slate-700">{row[1]}</td>
+                    <td className="px-2 py-4 text-slate-700">{row[2]}</td>
+                    <td className="px-2 py-4 text-slate-700">{row[3]}</td>
+                    <td className="px-2 py-4 font-medium text-slate-900">{row[4]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="surface rounded-3xl p-6">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+              Monitoring
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold text-slate-950">
+              Watch names before you buy
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Keep candidate domains in a portfolio-style queue, then revisit resale signals,
+              expiry timelines, and ownership changes without restarting your analysis.
+            </p>
+          </div>
+          <div className="surface rounded-3xl p-6">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+              Availability actions
+            </p>
+            <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+              <li>Register available names directly from the analysis workflow.</li>
+              <li>Watch taken names and monitor ownership metadata over time.</li>
+              <li>Keep portfolio notes aligned with registrar and market signals.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="market-insights" className="mt-10">
+        <div className="surface-strong rounded-3xl p-6">
+          <div className="flex flex-col gap-3 border-b border-[#eceef2] pb-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                Market insights
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                Extension trends and platform-ready patterns
+              </h2>
+            </div>
+            <div className="text-sm text-slate-500">Common registrar-style benchmark view</div>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-4">
+            {[
+              [".com", "Primary resale benchmark"],
+              [".ai", "Fast-growing startup demand"],
+              [".io", "Developer and SaaS positioning"],
+              [".co", "Lean brand alternative"],
+            ].map(([tld, note]) => (
+              <div key={tld} className="surface-muted rounded-2xl p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Tracked extension</p>
+                <p className="mt-3 text-3xl font-semibold text-slate-950">{tld}</p>
+                <p className="mt-2 text-sm text-slate-600">{note}</p>
               </div>
-            </div>
-
-            <div className="panel rounded-2xl p-6">
-              <p className="text-sm font-medium uppercase tracking-[0.16em] text-slate-500">What makes a domain valuable?</p>
-              <ul className="mt-4 space-y-3 text-sm text-slate-300">
-                <li>Short length</li>
-                <li>Clear spelling</li>
-                <li>Strong TLD</li>
-                <li>No hyphens</li>
-                <li>No numbers</li>
-                <li>Commercial intent</li>
-                <li>Easy pronunciation</li>
-              </ul>
-              <p className="mt-4 text-xs text-slate-400">These are general market heuristics and not guaranteed investment outcomes.</p>
-            </div>
+            ))}
           </div>
-        </section>
-
-      </div>
+        </div>
+      </section>
     </main>
   );
 }

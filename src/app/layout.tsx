@@ -29,9 +29,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-background text-foreground">
+      <body className="shell min-h-full bg-background text-foreground">
         <Navbar />
-        <div className="mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-12">
+        <div className="mx-auto w-full max-w-7xl px-6 pt-24 sm:px-8 lg:px-12">
           {children}
         </div>
         <Footer />

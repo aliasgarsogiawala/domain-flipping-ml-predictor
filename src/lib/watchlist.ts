@@ -12,7 +12,18 @@ export type WatchItem = {
 
 const STORAGE_KEY = "domain-flip.watchlist";
 
+function canUseLocalStorage() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.localStorage !== "undefined"
+  );
+}
+
 export function getWatchlist(): WatchItem[] {
+  if (!canUseLocalStorage()) {
+    return [];
+  }
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -24,6 +35,10 @@ export function getWatchlist(): WatchItem[] {
 }
 
 export function saveWatchlist(items: WatchItem[]) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   } catch (e) {

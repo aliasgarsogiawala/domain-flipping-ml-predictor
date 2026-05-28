@@ -9,6 +9,8 @@ import {
 import { getMockMarketData, type MockMarketData } from "@/lib/mockMarketData";
 import { lookupRDAP } from "@/lib/rdap";
 import { getMarketplaceStatus } from "@/lib/domainMarketplace";
+import { generateInvestmentReport } from "@/lib/investmentReport";
+import { generateValueProjection } from "@/lib/valueProjection";
 
 async function computeMarketScore(marketData: MockMarketData) {
   // Simple deterministic mapping to 0-100
@@ -117,11 +119,60 @@ export async function POST(request: Request) {
 
     final = Math.max(0, Math.min(100, final));
 
+    const brandPrestigeScore = Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          rule.breakdown.brandability * 2 +
+            rule.breakdown.memorability * 1.7 +
+            rule.breakdown.pronounceability * 1.4 +
+            rule.breakdown.premiumBrandSignal * 1.9,
+        ),
+      ),
+    );
+
+    const investmentScore = final;
+
+    const investmentReport = generateInvestmentReport({
+      domain: rule.domain,
+      name: rule.name,
+      tld: rule.tld,
+      score: final,
+      investmentScore,
+      brandPrestigeScore,
+      availabilityStatus: availability,
+      resaleStatus: marketplace?.resaleStatus ?? "unknown",
+      estimatedValueUsd: marketData.estimatedValueUsd,
+      registrar: rdap.registrar,
+      createdAt: rdap.createdAt,
+      expiresAt: rdap.expiresAt,
+      reasons: rule.reasons,
+      weaknesses: rule.weaknesses,
+      riskLevel: getRiskFromScore(final),
+      comparableSalesCount: marketData.comparableSalesCount,
+    });
+
+    const valueProjection = generateValueProjection({
+      estimatedValueUsd: marketData.estimatedValueUsd,
+      score: final,
+      investmentScore,
+      brandPrestigeScore,
+      marketScore,
+      riskLevel: getRiskFromScore(final),
+      tld: rule.tld,
+      domainLength: rule.name.replace(/\./g, "").length,
+      availabilityStatus: availability,
+      resaleStatus: marketplace?.resaleStatus ?? "unknown",
+    });
+
     const response = {
       domain: rule.domain,
       name: rule.name,
       tld: rule.tld,
       score: final,
+      investmentScore,
+      brandPrestigeScore,
       ruleScore: rule.ruleScore,
       marketScore,
       availabilityStatus: availability,
@@ -143,6 +194,8 @@ export async function POST(request: Request) {
       resaleConfidence: marketplace?.confidence ?? null,
       marketplaceLinks: marketplace?.marketplaceLinks ?? null,
       marketplaceNotes: marketplace?.notes ?? null,
+      investmentReport,
+      valueProjection,
     };
 
     return NextResponse.json(response);
