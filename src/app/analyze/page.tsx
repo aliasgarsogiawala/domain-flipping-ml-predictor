@@ -20,6 +20,9 @@ type ApiResult = {
   marketScore: number;
   availabilityStatus: "Available" | "Taken" | "Unknown";
   estimatedValueUsd: number;
+  tldMarketAnchorUsd: number;
+  adjustedEstimatedValueUsd: number;
+  liquidityScore: number;
   verdict: "Low Potential" | "Moderate Potential" | "High Potential" | "Premium Potential";
   riskLevel: "Low" | "Medium" | "High";
   reasons: string[];
@@ -406,7 +409,7 @@ export default function AnalyzePage() {
                   ["Registrar", result.rdap.registrar ?? "Not available"],
                   ["Created", formatDate(result.rdap.createdAt)],
                   ["Expires", formatDate(result.rdap.expiresAt)],
-                  ["Estimated value", `$${result.estimatedValueUsd?.toLocaleString?.() ?? result.estimatedValueUsd}`],
+                  ["Estimated value", `$${result.adjustedEstimatedValueUsd?.toLocaleString?.() ?? result.adjustedEstimatedValueUsd}`],
                   ["Comparable sales", `${result.marketData?.comparableSalesCount ?? result.comparableSalesCount ?? 0}`],
                 ].map(([label, value]) => (
                   <div key={label} className="surface rounded-2xl p-4">
@@ -420,6 +423,51 @@ export default function AnalyzePage() {
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_380px]">
                 <div className="space-y-6">
+                  <div className="surface-strong rounded-3xl p-6">
+                    <div className="flex flex-col gap-2 border-b border-[#eceef2] pb-4 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                          TLD Market Benchmark
+                        </p>
+                        <h3 className="mt-2 text-2xl font-semibold text-slate-950">
+                          Historical anchor normalization
+                        </h3>
+                      </div>
+                      <div className="rounded-full border border-[#d9dde5] bg-white px-3 py-1 text-sm font-medium text-slate-700">
+                        Liquidity score: {result.liquidityScore}
+                      </div>
+                    </div>
+                    <div className="mt-5 grid gap-4 md:grid-cols-3">
+                      <div className="surface rounded-2xl p-4">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                          TLD Market Benchmark
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-slate-950">
+                          ${result.tldMarketAnchorUsd.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="surface rounded-2xl p-4">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                          Adjusted Estimated Value
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-slate-950">
+                          ${result.adjustedEstimatedValueUsd.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="surface rounded-2xl p-4">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                          Raw Appraisal Signal
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-slate-950">
+                          ${result.estimatedValueUsd.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-slate-600">
+                      Based on recent historical sales references. External appraisal-style estimates remain one signal only and are normalized against TLD liquidity and resale reality.
+                    </p>
+                  </div>
+
                   <div className="surface-strong rounded-3xl p-6">
                     <div className="flex flex-col gap-2 border-b border-[#eceef2] pb-4 sm:flex-row sm:items-end sm:justify-between">
                       <div>
@@ -698,7 +746,7 @@ export default function AnalyzePage() {
                               score: result.score,
                               availabilityStatus: result.availabilityStatus,
                               resaleStatus: result.resaleStatus ?? null,
-                              estimatedValueUsd: result.estimatedValueUsd ?? null,
+                              estimatedValueUsd: result.adjustedEstimatedValueUsd ?? null,
                               registrar: result.rdap?.registrar ?? null,
                               expiresAt: result.rdap?.expiresAt ?? null,
                             });

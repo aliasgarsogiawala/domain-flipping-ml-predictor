@@ -16,7 +16,7 @@ type ComparisonResult = {
   score: number;
   investmentScore: number;
   brandPrestigeScore: number;
-  estimatedValueUsd: number;
+  adjustedEstimatedValueUsd: number;
   marketScore: number;
 };
 
@@ -56,8 +56,8 @@ export default function DomainComparisonChart({ primary, secondary }: Props) {
     },
     {
       metric: "Estimated Value",
-      [primary.domain]: primary.estimatedValueUsd,
-      [secondary.domain]: secondary.estimatedValueUsd,
+      [primary.domain]: primary.adjustedEstimatedValueUsd,
+      [secondary.domain]: secondary.adjustedEstimatedValueUsd,
     },
     {
       metric: "Market Score",

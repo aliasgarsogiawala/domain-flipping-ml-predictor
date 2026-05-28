@@ -1,0 +1,38 @@
+{
+  "com": {
+    "medianVisibleSaleUsd": 3500,
+    "liquidityScore": 92,
+    "trustScore": 96,
+    "resaleMultiplier": 1.18
+  },
+  "ai": {
+    "medianVisibleSaleUsd": 2200,
+    "liquidityScore": 78,
+    "trustScore": 80,
+    "resaleMultiplier": 1.08
+  },
+  "io": {
+    "medianVisibleSaleUsd": 1600,
+    "liquidityScore": 72,
+    "trustScore": 74,
+    "resaleMultiplier": 1.02
+  },
+  "in": {
+    "medianVisibleSaleUsd": 2700,
+    "liquidityScore": 63,
+    "trustScore": 71,
+    "resaleMultiplier": 0.94
+  },
+  "tech": {
+    "medianVisibleSaleUsd": 520,
+    "liquidityScore": 38,
+    "trustScore": 45,
+    "resaleMultiplier": 0.64
+  },
+  "info": {
+    "medianVisibleSaleUsd": 420,
+    "liquidityScore": 28,
+    "trustScore": 36,
+    "resaleMultiplier": 0.5
+  }
+}

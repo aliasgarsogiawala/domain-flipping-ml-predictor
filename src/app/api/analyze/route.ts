@@ -11,6 +11,100 @@ import { lookupRDAP } from "@/lib/rdap";
 import { getMarketplaceStatus } from "@/lib/domainMarketplace";
 import { generateInvestmentReport } from "@/lib/investmentReport";
 import { generateValueProjection } from "@/lib/valueProjection";
+import tldMarketAnchors from "@/data/tldMarketAnchors.json";
+
+type TldMarketAnchor = {
+  medianVisibleSaleUsd: number;
+  liquidityScore: number;
+  trustScore: number;
+  resaleMultiplier: number;
+};
+
+const DEFAULT_TLD_ANCHOR: TldMarketAnchor = {
+  medianVisibleSaleUsd: 320,
+  liquidityScore: 24,
+  trustScore: 34,
+  resaleMultiplier: 0.45,
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getTldAnchor(tld: string): TldMarketAnchor {
+  const anchor = (tldMarketAnchors as Record<string, TldMarketAnchor>)[tld];
+  return anchor ?? DEFAULT_TLD_ANCHOR;
+}
+
+function adjustEstimatedValue(params: {
+  rawEstimatedValueUsd: number;
+  tld: string;
+  score: number;
+  investmentScore: number;
+  brandPrestigeScore: number;
+  marketScore: number;
+  riskLevel: "Low" | "Medium" | "High";
+  availabilityStatus: "Available" | "Taken" | "Unknown";
+  resaleStatus: string;
+  premiumSignal: boolean;
+  comparableSalesCount: number;
+  domainLength: number;
+}) {
+  const anchor = getTldAnchor(params.tld);
+  const raw = params.rawEstimatedValueUsd;
+  const qualityBlend =
+    params.score * 0.32 +
+    params.investmentScore * 0.26 +
+    params.brandPrestigeScore * 0.22 +
+    params.marketScore * 0.2;
+
+  let qualityFactor = 0.55 + qualityBlend / 180;
+  if (params.domainLength <= 8) qualityFactor += 0.08;
+  else if (params.domainLength >= 14) qualityFactor -= 0.07;
+  if (params.premiumSignal) qualityFactor += 0.15;
+  if (params.comparableSalesCount >= 3) qualityFactor += 0.08;
+  if (params.riskLevel === "High") qualityFactor -= 0.12;
+  else if (params.riskLevel === "Medium") qualityFactor -= 0.05;
+  if (params.resaleStatus === "needs_verification") qualityFactor -= 0.08;
+  if (params.availabilityStatus === "Unknown") qualityFactor -= 0.04;
+
+  qualityFactor = clamp(qualityFactor, 0.35, 1.3);
+
+  const anchorDrivenEstimate =
+    anchor.medianVisibleSaleUsd * qualityFactor * anchor.resaleMultiplier;
+
+  // Treat the raw estimated value as one signal, not the dominant answer.
+  let adjusted = raw * 0.35 + anchorDrivenEstimate * 0.65;
+
+  const liquidityCap =
+    anchor.medianVisibleSaleUsd * (1.2 + anchor.liquidityScore / 65);
+  const floor = anchor.medianVisibleSaleUsd * 0.35;
+
+  adjusted = clamp(adjusted, floor, liquidityCap);
+
+  if (anchor.liquidityScore < 45) {
+    adjusted = Math.min(adjusted, anchor.medianVisibleSaleUsd * 1.45);
+  }
+
+  if (params.tld !== "com") {
+    const comAnchor = getTldAnchor("com");
+    const strongSignalGate =
+      params.score >= 84 &&
+      params.brandPrestigeScore >= 82 &&
+      params.marketScore >= 72 &&
+      params.comparableSalesCount >= 3;
+
+    if (!strongSignalGate) {
+      adjusted = Math.min(adjusted, comAnchor.medianVisibleSaleUsd * 0.95);
+    }
+  }
+
+  return {
+    tldMarketAnchorUsd: anchor.medianVisibleSaleUsd,
+    adjustedEstimatedValueUsd: Math.round(adjusted),
+    liquidityScore: anchor.liquidityScore,
+  };
+}
 
 async function computeMarketScore(marketData: MockMarketData) {
   // Simple deterministic mapping to 0-100
@@ -134,6 +228,21 @@ export async function POST(request: Request) {
 
     const investmentScore = final;
 
+    const valuation = adjustEstimatedValue({
+      rawEstimatedValueUsd: marketData.estimatedValueUsd,
+      tld: rule.tld,
+      score: final,
+      investmentScore,
+      brandPrestigeScore,
+      marketScore,
+      riskLevel: getRiskFromScore(final),
+      availabilityStatus: availability,
+      resaleStatus: marketplace?.resaleStatus ?? "unknown",
+      premiumSignal: marketData.premiumSignal,
+      comparableSalesCount: marketData.comparableSalesCount,
+      domainLength: rule.name.replace(/\./g, "").length,
+    });
+
     const investmentReport = generateInvestmentReport({
       domain: rule.domain,
       name: rule.name,
@@ -143,7 +252,7 @@ export async function POST(request: Request) {
       brandPrestigeScore,
       availabilityStatus: availability,
       resaleStatus: marketplace?.resaleStatus ?? "unknown",
-      estimatedValueUsd: marketData.estimatedValueUsd,
+      estimatedValueUsd: valuation.adjustedEstimatedValueUsd,
       registrar: rdap.registrar,
       createdAt: rdap.createdAt,
       expiresAt: rdap.expiresAt,
@@ -154,7 +263,7 @@ export async function POST(request: Request) {
     });
 
     const valueProjection = generateValueProjection({
-      estimatedValueUsd: marketData.estimatedValueUsd,
+      estimatedValueUsd: valuation.adjustedEstimatedValueUsd,
       score: final,
       investmentScore,
       brandPrestigeScore,
@@ -177,6 +286,9 @@ export async function POST(request: Request) {
       marketScore,
       availabilityStatus: availability,
       estimatedValueUsd: marketData.estimatedValueUsd,
+      tldMarketAnchorUsd: valuation.tldMarketAnchorUsd,
+      adjustedEstimatedValueUsd: valuation.adjustedEstimatedValueUsd,
+      liquidityScore: valuation.liquidityScore,
       comparableSalesCount: marketData.comparableSalesCount,
       rdap,
       breakdown: rule.breakdown,
