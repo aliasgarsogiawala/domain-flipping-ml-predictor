@@ -103,26 +103,7 @@ export default function AnalyzePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-8 lg:px-12">
-        <header className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.32em] text-slate-400">
-              DomainFlip AI
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">
-              Domain analyzer
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
-              Enter a domain and review its score, risk profile, and the signals
-              affecting resale potential.
-            </p>
-          </div>
-          <Link
-            href="/"
-            className="inline-flex items-center rounded-lg border border-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:border-slate-600 hover:text-slate-100"
-          >
-            Back to home
-          </Link>
-        </header>
+        <div></div>
 
         <section className="mt-10 grid items-start gap-6 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
           <div className="space-y-6 xl:sticky xl:top-8">
