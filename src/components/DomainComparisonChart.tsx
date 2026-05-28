@@ -70,24 +70,24 @@ export default function DomainComparisonChart({ primary, secondary }: Props) {
     <div className="h-[320px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 12, right: 12, left: 8, bottom: 8 }}>
-          <CartesianGrid stroke="#eceef2" strokeDasharray="3 3" />
+          <CartesianGrid stroke="#d7d7d1" strokeDasharray="3 3" />
           <XAxis
             dataKey="metric"
-            tick={{ fill: "#667085", fontSize: 12 }}
-            axisLine={{ stroke: "#dfe2e7" }}
-            tickLine={{ stroke: "#dfe2e7" }}
+            tick={{ fill: "#475569", fontSize: 12 }}
+            axisLine={{ stroke: "#111111" }}
+            tickLine={{ stroke: "#111111" }}
           />
           <YAxis
-            tick={{ fill: "#667085", fontSize: 12 }}
-            axisLine={{ stroke: "#dfe2e7" }}
-            tickLine={{ stroke: "#dfe2e7" }}
+            tick={{ fill: "#475569", fontSize: 12 }}
+            axisLine={{ stroke: "#111111" }}
+            tickLine={{ stroke: "#111111" }}
           />
           <Tooltip
             contentStyle={{
-              border: "1px solid #dfe2e7",
+              border: "1.5px solid #111111",
               borderRadius: "12px",
-              backgroundColor: "#ffffff",
-              color: "#0f172a",
+              backgroundColor: "#f7f7f5",
+              color: "#111111",
             }}
             formatter={(value, _name, item) => {
               const numericValue =
@@ -103,9 +103,9 @@ export default function DomainComparisonChart({ primary, secondary }: Props) {
               ];
             }}
           />
-          <Legend />
-          <Bar dataKey={primary.domain} fill="#F48120" radius={[6, 6, 0, 0]} />
-          <Bar dataKey={secondary.domain} fill="#64748b" radius={[6, 6, 0, 0]} />
+          <Legend wrapperStyle={{ color: "#111111" }} />
+          <Bar dataKey={primary.domain} fill="#ccff3f" stroke="#111111" radius={[6, 6, 0, 0]} />
+          <Bar dataKey={secondary.domain} fill="#7c86e8" stroke="#111111" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

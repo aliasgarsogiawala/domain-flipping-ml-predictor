@@ -1,24 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ECECEA;
-  --card: #F3F3F1;
-  --card-secondary: #D9D9D6;
-  --foreground: #111111;
-  --muted: #555555;
-  --border: #111111;
-  --accent-lime: #B8FF2C;
-  --accent-lime-bg: rgba(184, 255, 44, 0.12);
-  --button-purple: #7385F6;
-  --button-purple-bg: rgba(115, 133, 246, 0.12);
-  --success: #16a34a;
+  --bg-dark: #111318;
+  --bg-darker: #0b0d12;
+  --bg-navy: #101726;
+  --bg-light: #f2f2f0;
+  --bg-white: #f7f7f5;
+  --ink: #111111;
+  --ink-soft: #4b5563;
+  --line: rgba(17, 17, 17, 0.18);
+  --line-dark: rgba(255, 255, 255, 0.1);
+  --purple-bar: #7888ee;
+  --lime: #ccff3f;
+  --lime-strong: #b8f12e;
+  --blue: #3b82f6;
+  --success: #22c55e;
   --warning: #f59e0b;
-  --danger: #dc2626;
+  --danger: #ef4444;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-white);
+  --color-foreground: var(--ink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -28,13 +31,13 @@
 }
 
 html {
-  background: var(--background);
+  background: var(--bg-light);
 }
 
 body {
   min-height: 100vh;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-light);
+  color: var(--ink);
   font-family:
     var(--font-geist-sans),
     Inter,
@@ -59,96 +62,85 @@ input {
 }
 
 ::selection {
-  background: var(--accent-lime-bg);
-  color: var(--foreground);
+  background: rgba(120, 136, 238, 0.22);
+  color: var(--ink);
 }
 
 .shell {
   min-height: 100vh;
-  background: var(--background);
+  background: var(--bg-light);
 }
 
-.surface {
-  background: var(--card);
-  border: 2px solid var(--border);
-  box-shadow: none;
+.grid-paper {
+  background-color: var(--bg-white) !important;
+  background-image:
+    linear-gradient(to right, rgba(17, 17, 17, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(17, 17, 17, 0.12) 1px, transparent 1px);
+  background-size: 44px 44px;
 }
 
-.surface-muted {
-  background: var(--card-secondary);
-  border: 2px solid var(--border);
-  box-shadow: none;
+.hero-grid {
+  background-color: #0b0d12 !important;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 56px 56px;
 }
 
-.surface-strong {
-  background: var(--card);
-  border: 2px solid var(--border);
-  box-shadow: none;
+.panel-white {
+  background: #f7f7f5 !important;
+  border: 1.5px solid #111111;
+  box-shadow: 8px 8px 0 #111111;
 }
 
-.dashboard-grid {
-  background: var(--background);
+.panel-white-soft {
+  background: #efefed !important;
+  border: 1.5px solid #111111;
 }
 
-/* Lime accent button */
+.panel-dark {
+  background: #111318 !important;
+  border: 1px solid var(--line-dark);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 14px 28px rgba(0, 0, 0, 0.16);
+}
+
+.panel-dark-soft {
+  background: #101726 !important;
+  border: 1px solid var(--line-dark);
+}
+
 .btn-lime {
-  background: var(--accent-lime);
+  background: var(--lime);
   color: #111111;
-  border: 2px solid var(--accent-lime);
-  font-weight: 600;
+  border: 1.5px solid #111111;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .btn-lime:hover {
-  opacity: 0.9;
+  background: var(--lime-strong);
 }
 
-/* Purple CTA button */
-.btn-purple {
-  background: var(--button-purple);
-  color: white;
-  border: 2px solid var(--button-purple);
-  font-weight: 600;
-}
-
-.btn-purple:hover {
-  opacity: 0.9;
-}
-
-/* Secondary button */
-.secondary-button {
-  background: var(--card);
-  color: var(--foreground);
-  border: 2px solid var(--border);
-  font-weight: 500;
-}
-
-.secondary-button:hover {
-  background: var(--card-secondary);
-}
-
-/* Accent links */
-a {
-  color: var(--button-purple);
-}
-
-a:hover {
-  color: var(--foreground);
-  text-decoration: underline;
-}
-
-/* Monospace for domain/technical data */
-.font-mono-data {
-  font-family: "Courier New", monospace;
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-/* Lime highlight utility */
-.bg-lime-accent {
-  background: var(--accent-lime);
+.btn-ghost {
+  background: #ffffff;
   color: #111111;
+  border: 1.5px solid #111111;
 }
 
-.text-lime-accent {
-  color: var(--accent-lime);
+.data-mono {
+  font-family:
+    var(--font-geist-mono),
+    "SFMono-Regular",
+    ui-monospace,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+}
+
+.badge-dark {
+  background: #111111;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }

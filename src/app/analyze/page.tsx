@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useState, type ReactNode } from "react";
 import DomainComparisonChart from "@/components/DomainComparisonChart";
 import ValueProjectionChart from "@/components/ValueProjectionChart";
 import type { InvestmentReport } from "@/lib/investmentReport";
@@ -46,16 +46,16 @@ type ApiResult = {
 };
 
 const BREAKDOWN_LABELS: Record<string, string> = {
-  tldStrength: "TLD strength",
+  tldStrength: "TLD Strength",
   length: "Length",
   brandability: "Brandability",
   memorability: "Memorability",
   pronounceability: "Pronounceability",
-  premiumBrandSignal: "Premium brand signal",
-  trendRelevance: "Trend relevance",
-  commercialIntent: "Commercial intent",
-  registrationHistory: "Registration history",
-  riskPenalties: "Risk penalties",
+  premiumBrandSignal: "Brand Prestige",
+  trendRelevance: "Trend Relevance",
+  commercialIntent: "Commercial Intent",
+  registrationHistory: "Registration History",
+  riskPenalties: "Risk Penalties",
 };
 
 const BREAKDOWN_MAX: Record<string, number> = {
@@ -82,29 +82,89 @@ function formatDate(dateString: string | null) {
   }).format(date);
 }
 
-function badgeForAvailability(value: ApiResult["availabilityStatus"]) {
-  if (value === "Available") return "bg-accent-lime text-foreground";
-  if (value === "Taken") return "bg-card text-foreground";
-  return "bg-background text-foreground";
+function formatCurrency(value: number | null | undefined) {
+  if (!value && value !== 0) return "Not available";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-function badgeForRisk(value: ApiResult["riskLevel"]) {
-  if (value === "Low") return "bg-accent-lime text-foreground";
-  return "bg-background text-foreground";
+function titleCaseLabel(value: string | null | undefined) {
+  if (!value) return "Unknown";
+  return value.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function badgeForAvailability(value: ApiResult["availabilityStatus"]) {
+  if (value === "Available") return "bg-[var(--lime)] text-black border-black";
+  if (value === "Taken") return "bg-black text-white border-black";
+  return "bg-white text-black border-black";
 }
 
 function badgeForRecommendation(value: InvestmentReport["recommendation"]) {
-  if (value === "Buy") return "bg-accent-lime text-foreground";
-  if (value === "Watch") return "bg-card text-foreground";
-  return "bg-background text-foreground";
+  if (value === "Buy") return "bg-[var(--lime)] text-black border-black";
+  if (value === "Watch") return "bg-[var(--purple-bar)] text-black border-black";
+  return "bg-white text-black border-black";
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function badgeForRisk(value: ApiResult["riskLevel"]) {
+  if (value === "Low") return "bg-[var(--lime)] text-black border-black";
+  if (value === "Medium") return "bg-[#ffe8ae] text-black border-black";
+  return "bg-[#ffd3d3] text-black border-black";
+}
+
+function StatCard({
+  label,
+  value,
+  subtext,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  subtext?: string;
+  mono?: boolean;
+}) {
   return (
-    <div className="border-2 border-black rounded-lg bg-card p-4">
-      <p className="text-xs font-bold uppercase tracking-wide text-foreground">{label}</p>
-      <p className="mt-3 text-lg font-bold font-mono-data text-accent-lime">{value}</p>
+    <div className="panel-white-soft rounded-[22px] p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">{label}</p>
+      <p className={`mt-3 text-2xl font-semibold text-black ${mono ? "data-mono" : ""}`}>{value}</p>
+      {subtext ? <p className="mt-2 text-sm leading-6 text-slate-600">{subtext}</p> : null}
     </div>
+  );
+}
+
+function DetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-black bg-white px-4 py-3 text-sm">
+      <span className="text-slate-600">{label}</span>
+      <span className={`${mono ? "data-mono" : ""} text-right font-medium text-black`}>{value}</span>
+    </div>
+  );
+}
+
+function SectionCard({
+  eyebrow,
+  title,
+  children,
+  aside,
+}: {
+  eyebrow: string;
+  title: string;
+  children: ReactNode;
+  aside?: ReactNode;
+}) {
+  return (
+    <section className="panel-white rounded-[28px] p-6 sm:p-7">
+      <div className="flex flex-col gap-3 border-b border-black pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">{eyebrow}</p>
+          <h2 className="mt-2 text-2xl font-semibold text-black">{title}</h2>
+        </div>
+        {aside}
+      </div>
+      <div className="mt-5">{children}</div>
+    </section>
   );
 }
 
@@ -127,12 +187,10 @@ export default function AnalyzePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain: input }),
       });
-
       if (!res.ok) {
         const payload = await res.json();
         throw new Error(payload?.error || "Analysis failed");
       }
-
       const json: ApiResult = await res.json();
       setResult(json);
       setCompareResult(null);
@@ -159,12 +217,10 @@ export default function AnalyzePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain: compareInput }),
       });
-
       if (!res.ok) {
         const payload = await res.json();
         throw new Error(payload?.error || "Comparison failed");
       }
-
       const json: ApiResult = await res.json();
       setCompareResult(json);
       setCompareError("");
@@ -186,437 +242,435 @@ export default function AnalyzePage() {
       : null;
 
   return (
-    <main className="pb-16 pt-4">
-      <section className="mb-8 border-b-2 border-black pb-8">
-        <div className="mx-auto max-w-6xl px-6 sm:px-8 lg:px-12">
-          <p className="text-sm font-bold uppercase tracking-wide text-foreground">Investigation workspace</p>
-          <h1 className="mt-3 text-5xl font-extrabold leading-tight text-foreground sm:text-6xl">
-            Analyze domains like a registrar intelligence dashboard.
-          </h1>
-          <p className="mt-4 max-w-3xl text-lg leading-7 text-foreground">
-            Review ownership data, market heuristics, score composition, and investment potential inside a structured platform-style layout.
-          </p>
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-6xl items-start gap-6 px-6 sm:px-8 lg:px-12 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="space-y-6 xl:sticky xl:top-28">
-          <div className="border-2 border-black rounded-lg bg-card p-6">
-            <div className="border-b-2 border-black pb-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">Search workspace</p>
-              <h2 className="mt-3 text-2xl font-bold text-foreground">Analyze a domain</h2>
-              <p className="mt-2 text-sm leading-6 text-foreground">
-                Enter a raw domain or full URL to normalize, score, and inspect registration details.
-              </p>
-            </div>
-
-            <div className="mt-5 space-y-4">
-              <div>
-                <label htmlFor="domain" className="block text-sm font-bold text-foreground">Domain input</label>
-                <input
-                  id="domain"
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleAnalyze();
-                  }}
-                  placeholder="example.com"
-                  className="mt-3 min-h-12 w-full rounded-lg border-2 border-black bg-background px-4 text-base text-foreground outline-none placeholder:text-foreground/50 focus:ring-2 focus:ring-button-purple"
-                />
+    <main className="pb-16">
+      <section className="relative overflow-hidden rounded-[32px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.07) 1px, transparent 1px)",
+            backgroundSize: "56px 56px",
+          }}
+        />
+        <div className="relative grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <aside className="space-y-6">
+            <div className="rounded-[28px] border border-white/10 bg-[#111318] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+              <div className="border-b border-white/10 pb-4">
+                <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Analysis Terminal</p>
+                <h1 className="mt-2 text-3xl font-semibold text-white">Domain investigation</h1>
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  Score quality, normalize market value, inspect RDAP history, and decide whether to buy, watch, or avoid.
+                </p>
               </div>
 
-              <div className="border-2 border-black rounded-lg bg-background p-4 text-sm leading-6 text-foreground">
-                RDAP ownership checks run from the backend. Market pricing is normalized against TLD weights.
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label htmlFor="domain" className="block text-sm font-medium text-slate-300">
+                    Primary Domain
+                  </label>
+                  <input
+                    id="domain"
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") handleAnalyze();
+                    }}
+                    placeholder="example.com"
+                    className="data-mono mt-2 min-h-[52px] w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base text-slate-100 outline-none placeholder:text-slate-500 focus:border-[var(--lime)] focus:ring-2 focus:ring-[var(--lime)]/20"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAnalyze}
+                  disabled={isLoading}
+                  className="btn-lime inline-flex min-h-[52px] w-full items-center justify-center rounded-full text-sm font-semibold disabled:opacity-70"
+                >
+                  {isLoading ? "Analyzing..." : "Analyze Domain"}
+                </button>
+
+                {error ? (
+                  <div className="rounded-2xl border border-[#fca5a5]/40 bg-[#2b1111] px-4 py-3 text-sm text-[#fecaca]">
+                    {error}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-white/10 bg-[#111318] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+              <div className="border-b border-white/10 pb-4">
+                <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Comparison</p>
+                <h2 className="mt-2 text-xl font-semibold text-white">Screen against another domain</h2>
               </div>
 
-              <button
-                type="button"
-                onClick={handleAnalyze}
-                disabled={isLoading}
-                className="btn-lime inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold disabled:opacity-70"
-              >
-                {isLoading ? "Analyzing..." : "Analyze domain"}
-              </button>
-
-              {error ? <div className="rounded-lg border-2 border-black bg-background px-4 py-3 text-sm text-foreground">{error}</div> : null}
-            </div>
-          </div>
-
-          <div className="border-2 border-black rounded-lg bg-card p-6">
-            <p className="text-xs font-bold uppercase tracking-wide text-foreground">Comparison</p>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="compare-domain" className="block text-sm font-bold text-foreground">
-                  Compare with another domain
-                </label>
+              <div className="mt-5 space-y-4">
                 <input
-                  id="compare-domain"
                   value={compareInput}
                   onChange={(event) => setCompareInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") handleCompare();
                   }}
-                  placeholder="anotherdomain.com"
-                  className="mt-3 min-h-12 w-full rounded-lg border-2 border-black bg-background px-4 text-base text-foreground outline-none placeholder:text-foreground/50 focus:ring-2 focus:ring-button-purple"
+                  placeholder="compare another domain"
+                  className="data-mono min-h-[52px] w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base text-slate-100 outline-none placeholder:text-slate-500 focus:border-[var(--lime)] focus:ring-2 focus:ring-[var(--lime)]/20"
                 />
+                <button
+                  type="button"
+                  onClick={handleCompare}
+                  disabled={!result || isCompareLoading}
+                  className="btn-ghost inline-flex min-h-[52px] w-full items-center justify-center rounded-full text-sm font-semibold disabled:opacity-60"
+                >
+                  {isCompareLoading ? "Comparing..." : "Compare Domains"}
+                </button>
+                {compareError ? (
+                  <div className="rounded-2xl border border-[#fca5a5]/40 bg-[#2b1111] px-4 py-3 text-sm text-[#fecaca]">
+                    {compareError}
+                  </div>
+                ) : null}
               </div>
-              <button
-                type="button"
-                onClick={handleCompare}
-                disabled={!result || isCompareLoading}
-                className="btn-purple inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold disabled:opacity-70"
-              >
-                {isCompareLoading ? "Comparing..." : "Compare"}
-              </button>
-              {compareError ? <div className="rounded-lg border-2 border-black bg-background px-4 py-3 text-sm text-foreground">{compareError}</div> : null}
+            </div>
+          </aside>
+
+          <div className="flex flex-col justify-between gap-8">
+            <div>
+              <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
+                Intelligence workspace
+              </div>
+              <h2 className="mt-5 max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl">
+                Technical, valuation, and acquisition signals in one domain research surface.
+              </h2>
+              <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
+                Built to feel like a serious domain intelligence desk: score layers, RDAP details, benchmarked valuation,
+                resale posture, value projection, and deterministic recommendation output.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Scoring stack</p>
+                <p className="data-mono mt-3 text-3xl font-semibold text-white">10 signals</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">TLD strength, brandability, market posture, and penalties.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Market anchors</p>
+                <p className="data-mono mt-3 text-3xl font-semibold text-white">TLD median refs</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">Curated benchmark values keep estimates believable.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">RDAP visibility</p>
+                <p className="data-mono mt-3 text-3xl font-semibold text-white">Registrar-first</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">Lifecycle timing and ownership metadata where available.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Monitoring flow</p>
+                <p className="data-mono mt-3 text-3xl font-semibold text-white">Watch ready</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">Track taken assets and recheck them from the watchlist.</p>
+              </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="border-2 border-black rounded-lg bg-card p-6">
-            <p className="text-xs font-bold uppercase tracking-wide text-foreground">Methodology</p>
-            <ul className="mt-4 space-y-3 text-sm leading-7 text-foreground">
-              <li>• Scores blend domain quality, market heuristics, and registration history.</li>
-              <li>• TLD-adjusted valuations prevent unrealistic comparisons.</li>
-              <li>• Projections are conservative scenario estimates.</li>
-            </ul>
-          </div>
-        </aside>
-
-        <section className="space-y-6">
-          {result ? (
-            <>
-              <div className="border-2 border-black rounded-lg bg-card p-8">
-                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Domain overview</p>
-                    <h2 className="mt-3 text-4xl font-extrabold font-mono-data text-foreground">{result.domain}</h2>
-                    <p className="mt-4 max-w-2xl text-base leading-7 text-foreground">
-                      Structured domain assessment with ownership context, registration signals, resale heuristics, and registrar-style availability handling.
-                    </p>
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <span className="rounded-lg border-2 border-black bg-card px-4 py-2 text-sm font-bold text-foreground">{result.verdict}</span>
-                      <span className={`rounded-lg border-2 border-black px-4 py-2 text-sm font-bold ${badgeForRisk(result.riskLevel)}`}>Risk: {result.riskLevel}</span>
-                      <span className={`rounded-lg border-2 border-black px-4 py-2 text-sm font-bold ${badgeForAvailability(result.availabilityStatus)}`}>{result.availabilityStatus}</span>
-                    </div>
-                  </div>
-
-                  <div className="border-2 border-black rounded-lg bg-accent-lime p-6">
-                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Composite score</p>
-                    <p className="mt-4 text-6xl font-extrabold text-foreground">{result.score}</p>
-                    <p className="mt-2 text-sm font-semibold text-foreground">out of 100</p>
-                    <div className="mt-6 space-y-2 text-sm">
-                      <div className="flex items-center justify-between rounded-lg border-2 border-black bg-background px-4 py-3">
-                        <span className="font-semibold text-foreground">Rule score</span>
-                        <span className="font-mono-data font-bold text-foreground">{result.ruleScore}</span>
-                      </div>
-                      <div className="flex items-center justify-between rounded-lg border-2 border-black bg-background px-4 py-3">
-                        <span className="font-semibold text-foreground">Market score</span>
-                        <span className="font-mono-data font-bold text-foreground">{result.marketScore}</span>
-                      </div>
-                    </div>
-                  </div>
+      {result ? (
+        <>
+          <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
+            <div className="panel-white rounded-[28px] p-6 sm:p-7">
+              <div className="flex flex-col gap-4 border-b border-black pb-5 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Active Domain</p>
+                  <h2 className="data-mono mt-2 text-3xl font-semibold text-black sm:text-4xl">{result.domain}</h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-700">
+                    {result.investmentReport.summary}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForAvailability(result.availabilityStatus)}`}>
+                    {result.availabilityStatus}
+                  </span>
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRecommendation(result.investmentReport.recommendation)}`}>
+                    {result.investmentReport.recommendation}
+                  </span>
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRisk(result.riskLevel)}`}>
+                    Risk: {result.riskLevel}
+                  </span>
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-                <StatCard label="TLD" value={`.${result.tld}`} />
-                <StatCard label="Name" value={result.name} />
-                <StatCard label="Availability" value={result.availabilityStatus} />
-                <StatCard label="Investment score" value={`${result.investmentScore}`} />
-                <StatCard label="Brand prestige" value={`${result.brandPrestigeScore}`} />
-                <StatCard label="Registrar" value={result.rdap.registrar ?? "Not available"} />
-                <StatCard label="Created" value={formatDate(result.rdap.createdAt)} />
-                <StatCard label="Expires" value={formatDate(result.rdap.expiresAt)} />
-                <StatCard label="Estimated value" value={`$${result.adjustedEstimatedValueUsd.toLocaleString()}`} />
-                <StatCard label="Comparable sales" value={`${result.marketData?.comparableSalesCount ?? result.comparableSalesCount ?? 0}`} />
+              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <StatCard label="Final Score" value={`${result.score}`} subtext={result.verdict} mono />
+                <StatCard
+                  label="Estimated Value"
+                  value={formatCurrency(result.adjustedEstimatedValueUsd)}
+                  subtext="Adjusted estimate"
+                  mono
+                />
+                <StatCard label="Availability" value={result.availabilityStatus} subtext="RDAP-backed where available" />
+                <StatCard label="Resale Status" value={titleCaseLabel(result.resaleStatus)} subtext={result.detectedMarketplace ?? "No marketplace link detected"} />
+                <StatCard label="Recommendation" value={result.investmentReport.recommendation} subtext={`Resale potential: ${result.investmentReport.resalePotential}`} />
               </div>
 
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_380px]">
-                <div className="space-y-6">
-                  <div className="border-2 border-black rounded-lg bg-card p-8">
-                    <div className="flex flex-col gap-2 border-b-2 border-black pb-6 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">TLD Market Benchmark</p>
-                        <h3 className="mt-3 text-2xl font-bold text-foreground">Historical anchor normalization</h3>
-                      </div>
-                      <div className="border-2 border-black bg-background px-4 py-2 rounded-lg text-sm font-bold text-foreground">Liquidity: {result.liquidityScore}</div>
-                    </div>
-                    <div className="mt-6 grid gap-4 md:grid-cols-3">
-                      <StatCard label="TLD Market Benchmark" value={`$${result.tldMarketAnchorUsd.toLocaleString()}`} />
-                      <StatCard label="Adjusted Value" value={`$${result.adjustedEstimatedValueUsd.toLocaleString()}`} />
-                      <StatCard label="Raw Appraisal" value={`$${result.estimatedValueUsd.toLocaleString()}`} />
-                    </div>
-                    <p className="mt-6 text-sm leading-7 text-foreground">
-                      Based on historical sales references. Appraisal estimates are normalized against TLD market weight and resale liquidity.
-                    </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <StatCard label="Investment Score" value={`${result.investmentScore}`} mono />
+                <StatCard label="Brand Prestige" value={`${result.brandPrestigeScore}`} mono />
+                <StatCard label="Market Score" value={`${result.marketScore}`} mono />
+                <StatCard label="Liquidity Score" value={`${result.liquidityScore}`} mono />
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_390px]">
+            <div className="space-y-6">
+              <SectionCard
+                eyebrow="Value Projection"
+                title="Projected scenario range"
+                aside={
+                  <div className="rounded-full border border-black bg-[var(--lime)] px-3 py-1 text-sm font-semibold text-black">
+                    Confidence: {result.valueProjection.confidence}
                   </div>
+                }
+              >
+                <ValueProjectionChart projection={result.valueProjection} />
+                <p className="mt-4 text-sm leading-7 text-slate-700">
+                  Projection is estimated from scoring signals and market data. It is not a guaranteed resale outcome.
+                </p>
+              </SectionCard>
 
-                  <div className="border-2 border-black rounded-lg bg-card p-8">
-                    <div className="flex flex-col gap-2 border-b-2 border-black pb-6 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Value projection</p>
-                        <h3 className="mt-3 text-2xl font-bold text-foreground">Projected scenario range</h3>
-                      </div>
-                      <div className="border-2 border-black bg-background px-4 py-2 rounded-lg text-sm font-bold text-foreground">
-                        Confidence: {result.valueProjection.confidence}
-                      </div>
-                    </div>
-                    <div className="mt-6">
-                      <ValueProjectionChart projection={result.valueProjection} />
-                    </div>
-                    <p className="mt-6 text-sm leading-7 text-foreground">
-                      Projection is estimated from scoring signals and market data. It is not a guaranteed resale outcome.
-                    </p>
+              <SectionCard
+                eyebrow="Investment Report"
+                title="Deterministic recommendation"
+                aside={
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRecommendation(result.investmentReport.recommendation)}`}>
+                    {result.investmentReport.recommendation}
+                  </span>
+                }
+              >
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Summary</p>
+                    <p className="mt-4 text-sm leading-7 text-slate-700">{result.investmentReport.summary}</p>
                   </div>
-
-                  <div className="border-2 border-black rounded-lg bg-card p-8">
-                    <div className="flex flex-col gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Investment report</p>
-                        <h3 className="mt-3 text-2xl font-bold text-foreground">Deterministic recommendation</h3>
-                      </div>
-                      <span className={`inline-flex rounded-lg border-2 border-black px-4 py-2 text-sm font-bold ${badgeForRecommendation(result.investmentReport.recommendation)}`}>
-                        {result.investmentReport.recommendation}
-                      </span>
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Ideal Buyer Profile</p>
+                    <p className="mt-4 text-sm leading-7 text-slate-700">{result.investmentReport.idealBuyerProfile}</p>
+                    <div className="mt-5 rounded-2xl border border-black bg-white px-4 py-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Resale Potential</p>
+                      <p className="mt-2 text-lg font-semibold text-black">{result.investmentReport.resalePotential}</p>
                     </div>
+                  </div>
+                </div>
 
-                    <p className="mt-6 text-sm leading-7 text-foreground">{result.investmentReport.summary}</p>
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Reasons To Buy</p>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                      {result.investmentReport.reasonsToBuy.map((item) => (
+                        <li key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Reasons To Avoid</p>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                      {result.investmentReport.reasonsToAvoid.map((item) => (
+                        <li key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
 
-                    <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                      <section className="border-2 border-black rounded-lg bg-background p-5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Reasons to buy</p>
-                        <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
-                          {result.investmentReport.reasonsToBuy.map((reason: string) => (
-                            <li key={reason} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {reason}</li>
-                          ))}
-                        </ul>
-                      </section>
-
-                      <section className="border-2 border-black rounded-lg bg-background p-5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Reasons to avoid</p>
-                        <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
-                          {result.investmentReport.reasonsToAvoid.map((reason: string) => (
-                            <li key={reason} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {reason}</li>
-                          ))}
-                        </ul>
-                      </section>
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Best Use Cases</p>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                      {result.investmentReport.bestUseCases.map((item) => (
+                        <li key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="grid gap-4">
+                    <div className="panel-white-soft rounded-[22px] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Acquisition Strategy</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-700">{result.investmentReport.acquisitionStrategy}</p>
                     </div>
+                    <div className="panel-white-soft rounded-[22px] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Risk Explanation</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-700">{result.investmentReport.riskExplanation}</p>
+                    </div>
+                    <div className="panel-white-soft rounded-[22px] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Final Verdict</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-700">{result.investmentReport.finalVerdict}</p>
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
 
-                    <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                      <div className="border-2 border-black rounded-lg bg-background p-5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Best use cases</p>
-                        <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
-                          {result.investmentReport.bestUseCases.map((useCase: string) => (
-                            <li key={useCase} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {useCase}</li>
-                          ))}
-                        </ul>
-                      </div>
+              <SectionCard
+                eyebrow="Technical Scoring"
+                title="Component contribution"
+                aside={<p className="text-sm text-slate-600">Positive categories add value. Penalties reduce the final score.</p>}
+              >
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {(Object.entries(result.breakdown || {}) as Array<[string, number]>).map(([key, value]) => {
+                    const isPenalty = key === "riskPenalties";
+                    const max = BREAKDOWN_MAX[key];
+                    const width = max ? Math.max(6, Math.min(100, (value / max) * 100)) : 10;
 
-                      <div className="border-2 border-black rounded-lg bg-background p-5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Buyer profile</p>
-                        <p className="mt-4 text-sm leading-6 text-foreground">{result.investmentReport.idealBuyerProfile}</p>
-                        <div className="mt-4 border-2 border-black rounded-lg bg-accent-lime px-4 py-3">
-                          <p className="text-xs font-bold uppercase tracking-wide text-foreground">Resale potential</p>
-                          <p className="mt-2 text-lg font-bold text-foreground">{result.investmentReport.resalePotential}</p>
+                    return (
+                      <div key={key} className="panel-white-soft rounded-[22px] p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-black">{BREAKDOWN_LABELS[key] ?? key}</p>
+                            <p className="mt-1 text-xs text-slate-500">{isPenalty ? "Penalty category" : "Positive category"}</p>
+                          </div>
+                          <p className="data-mono text-sm font-semibold text-black">
+                            {isPenalty ? "-" : "+"}
+                            {value}
+                            <span className="ml-1 text-slate-500">/ {max}</span>
+                          </p>
+                        </div>
+                        <div className="mt-3 h-2 rounded-full bg-black/10">
+                          <div
+                            className={`h-2 rounded-full ${isPenalty ? "bg-black" : "bg-[var(--purple-bar)]"}`}
+                            style={{ width: `${width}%` }}
+                          />
                         </div>
                       </div>
-                    </div>
-
-                    <div className="mt-6 space-y-4">
-                      <div className="border-2 border-black rounded-lg bg-background p-5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Acquisition strategy</p>
-                        <p className="mt-3 text-sm leading-6 text-foreground">{result.investmentReport.acquisitionStrategy}</p>
-                      </div>
-                      <div className="border-2 border-black rounded-lg bg-background p-5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Risk explanation</p>
-                        <p className="mt-3 text-sm leading-6 text-foreground">{result.investmentReport.riskExplanation}</p>
-                      </div>
-                      <div className="border-2 border-black rounded-lg bg-background p-5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Final verdict</p>
-                        <p className="mt-3 text-sm leading-6 text-foreground">{result.investmentReport.finalVerdict}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-2 border-black rounded-lg bg-card p-8">
-                    <div className="flex flex-col gap-2 border-b-2 border-black pb-6 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Score breakdown</p>
-                        <h3 className="mt-3 text-2xl font-bold text-foreground">Component contribution</h3>
-                      </div>
-                      <p className="text-sm text-foreground">Categories add value. Risk penalties reduce the score.</p>
-                    </div>
-
-                    <div className="mt-6 grid gap-3 xl:grid-cols-2">
-                      {(Object.entries(result.breakdown || {}) as Array<[string, number]>).map(([key, value]) => {
-                        const isPenalty = key === "riskPenalties";
-                        const max = BREAKDOWN_MAX[key];
-                        const width = max ? Math.max(8, (value / max) * 100) : 10;
-                        return (
-                          <div key={key} className="border-2 border-black rounded-lg bg-background p-4">
-                            <div className="flex items-center justify-between gap-4">
-                              <div>
-                                <p className="text-sm font-bold text-foreground">{BREAKDOWN_LABELS[key] ?? key}</p>
-                                <p className="mt-1 text-xs text-foreground/70">{isPenalty ? "Penalty" : "Positive"}</p>
-                              </div>
-                              <p className={`text-sm font-bold font-mono-data ${isPenalty ? "text-foreground" : "text-accent-lime"}`}>
-                                {isPenalty ? "-" : "+"}{value} / {max}
-                              </p>
-                            </div>
-                            <div className="mt-3 h-3 rounded-lg border-2 border-black bg-background">
-                              <div className={`h-3 rounded-lg ${isPenalty ? "bg-foreground/30" : "bg-accent-lime"}`} style={{ width: `${width}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-6 xl:grid-cols-2">
-                    <section className="border-2 border-black rounded-lg bg-card p-6">
-                      <p className="text-xs font-bold uppercase tracking-wide text-foreground">Strengths</p>
-                      <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
-                        {result.reasons.map((reason: string) => (
-                          <li key={reason} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {reason}</li>
-                        ))}
-                      </ul>
-                    </section>
-
-                    <section className="border-2 border-black rounded-lg bg-card p-6">
-                      <p className="text-xs font-bold uppercase tracking-wide text-foreground">Weaknesses</p>
-                      <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
-                        {result.weaknesses.length > 0 ? (
-                          result.weaknesses.map((weakness: string) => (
-                            <li key={weakness} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {weakness}</li>
-                          ))
-                        ) : (
-                          <li>No major weaknesses flagged.</li>
-                        )}
-                      </ul>
-                    </section>
-                  </div>
+                    );
+                  })}
                 </div>
+              </SectionCard>
 
-                <div className="space-y-6">
-                  {compareResult ? (
-                    <section className="border-2 border-black rounded-lg bg-card p-6">
-                      <div className="flex flex-col gap-2 border-b-2 border-black pb-4">
-                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Domain comparison</p>
-                        <h3 className="text-2xl font-bold text-foreground">Compare projected strength</h3>
-                      </div>
-                      <div className="mt-5">
-                        <DomainComparisonChart primary={result} secondary={compareResult} />
-                      </div>
-                      {comparisonVerdict ? <p className="mt-4 text-sm leading-6 text-foreground">{comparisonVerdict}</p> : null}
-                    </section>
+              {compareResult ? (
+                <SectionCard eyebrow="Domain Comparison" title="Side-by-side analytics">
+                  <DomainComparisonChart primary={result} secondary={compareResult} />
+                  {comparisonVerdict ? (
+                    <div className="mt-4 rounded-2xl border border-black bg-[var(--lime)] px-4 py-3 text-sm font-medium text-black">
+                      {comparisonVerdict}
+                    </div>
                   ) : null}
+                </SectionCard>
+              ) : null}
+            </div>
 
-                  <section className="border-2 border-black rounded-lg bg-card p-6">
-                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Availability action</p>
-                    <div className="mt-4 flex items-center gap-3">
-                      <span className={`rounded-lg border-2 border-black px-4 py-2 text-sm font-bold ${badgeForAvailability(result.availabilityStatus)}`}>
-                        {result.availabilityStatus}
-                      </span>
-                    </div>
-                    <p className="mt-5 text-sm leading-6 text-foreground">
-                      Ownership status is based on RDAP lookup data from the backend. This gives registrar-style visibility.
-                    </p>
-
-                    <div className="mt-6">
-                      {result.availabilityStatus === "Available" ? (
-                        <button type="button" className="btn-lime inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold">
-                          Register domain
-                        </button>
-                      ) : result.availabilityStatus === "Taken" ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const added = addToWatchlist({
-                              domain: result.domain,
-                              score: result.score,
-                              availabilityStatus: result.availabilityStatus,
-                              resaleStatus: result.resaleStatus ?? null,
-                              estimatedValueUsd: result.adjustedEstimatedValueUsd ?? null,
-                              registrar: result.rdap?.registrar ?? null,
-                              expiresAt: result.rdap?.expiresAt ?? null,
-                            });
-                            setWatchAdded(result.domain);
-                            setTimeout(() => setWatchAdded(null), added ? 3000 : 1500);
-                          }}
-                          className="btn-purple inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold"
-                        >
-                          {watchAdded === result.domain ? "Added to watchlist" : "Watch domain"}
-                        </button>
-                      ) : (
-                        <button type="button" className="btn-purple inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold">
-                          Check again later
-                        </button>
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="border-2 border-black rounded-lg bg-card p-6">
-                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Domain status</p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {result.rdap.statuses.length > 0 ? (
-                        result.rdap.statuses.map((status: string) => (
-                          <span key={status} className="rounded-lg border-2 border-black bg-background px-3 py-1 text-sm font-semibold text-foreground">
-                            {status}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="rounded-lg border-2 border-black bg-background px-3 py-1 text-sm font-semibold text-foreground/70">
-                          No RDAP status flags
-                        </span>
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="border-2 border-black rounded-lg bg-card p-6">
-                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Resale signal</p>
-                    <div className="mt-4 space-y-3 text-sm text-foreground">
-                      <div className="flex items-center justify-between border-b border-black pb-3"><span>Status</span><span className="font-bold">{result.resaleStatus ?? "unknown"}</span></div>
-                      <div className="flex items-center justify-between border-b border-black pb-3"><span>Marketplace</span><span className="font-bold">{result.detectedMarketplace ?? result.marketplaceName ?? "Not detected"}</span></div>
-                      <div className="flex items-center justify-between"><span>Confidence</span><span className="font-bold">{result.resaleConfidence ?? "low"}</span></div>
-                    </div>
-                    <p className="mt-4 text-xs text-foreground/70">Marketplace detection is heuristic. Verify manually before acting.</p>
-
-                    {result.marketplaceLinks ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {Object.entries(result.marketplaceLinks).map(([key, url]) => (
-                          <a key={key} href={url} target="_blank" rel="noreferrer" className="border-2 border-black bg-background rounded-lg px-3 py-2 text-xs font-bold text-foreground hover:bg-accent-lime transition-colors">
-                            {key}
-                          </a>
-                        ))}
-                      </div>
-                    ) : null}
-                  </section>
+            <div className="space-y-6">
+              <SectionCard eyebrow="RDAP Details" title="Registration metadata">
+                <div className="grid gap-3">
+                  <DetailRow label="Registrar" value={result.rdap.registrar ?? "Not available"} mono />
+                  <DetailRow label="Created" value={formatDate(result.rdap.createdAt)} mono />
+                  <DetailRow label="Expires" value={formatDate(result.rdap.expiresAt)} mono />
+                  <DetailRow label="Updated" value={formatDate(result.rdap.updatedAt)} mono />
+                  <DetailRow
+                    label="Status tags"
+                    value={result.rdap.statuses?.length ? result.rdap.statuses.join(", ") : "Not available"}
+                  />
                 </div>
+              </SectionCard>
+
+              <SectionCard eyebrow="Valuation Layer" title="Benchmark normalized estimates">
+                <div className="grid gap-3">
+                  <DetailRow label="Raw appraisal signal" value={formatCurrency(result.estimatedValueUsd)} mono />
+                  <DetailRow label="Adjusted estimated value" value={formatCurrency(result.adjustedEstimatedValueUsd)} mono />
+                  <DetailRow label="TLD market benchmark" value={formatCurrency(result.tldMarketAnchorUsd)} mono />
+                  <DetailRow label="Liquidity score" value={`${result.liquidityScore}`} mono />
+                </div>
+                <p className="mt-4 text-sm leading-7 text-slate-700">
+                  Based on recent historical sales references. External appraisal inputs remain a signal, not the final value.
+                </p>
+              </SectionCard>
+
+              <SectionCard eyebrow="Comparable Sales" title="Market posture">
+                <div className="grid gap-3">
+                  <DetailRow label="Comparable sale count" value={`${result.comparableSalesCount}`} mono />
+                  <DetailRow label="Market score" value={`${result.marketScore}`} mono />
+                  <DetailRow label="Resale status" value={titleCaseLabel(result.resaleStatus)} />
+                  <DetailRow label="Marketplace" value={result.detectedMarketplace ?? "Not detected"} />
+                  <DetailRow label="Asking price" value={formatCurrency(result.askingPrice)} mono />
+                </div>
+              </SectionCard>
+
+              <SectionCard eyebrow="Availability Action" title="Acquire or monitor">
+                <div className="flex flex-wrap gap-3">
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForAvailability(result.availabilityStatus)}`}>
+                    {result.availabilityStatus}
+                  </span>
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRecommendation(result.investmentReport.recommendation)}`}>
+                    {result.investmentReport.recommendation}
+                  </span>
+                </div>
+                <p className="mt-4 text-sm leading-7 text-slate-700">
+                  Availability checking, market posture, and registrar timing are visible here so the next action is obvious even before automation exists.
+                </p>
+                <div className="mt-5 grid gap-3">
+                  {result.availabilityStatus === "Available" ? (
+                    <button type="button" className="btn-lime inline-flex min-h-[52px] w-full items-center justify-center rounded-full text-sm font-semibold">
+                      Register Domain
+                    </button>
+                  ) : result.availabilityStatus === "Taken" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const added = addToWatchlist({
+                          domain: result.domain,
+                          score: result.score,
+                          availabilityStatus: result.availabilityStatus,
+                          resaleStatus: result.resaleStatus ?? null,
+                          estimatedValueUsd: result.adjustedEstimatedValueUsd ?? null,
+                          registrar: result.rdap?.registrar ?? null,
+                          expiresAt: result.rdap?.expiresAt ?? null,
+                        });
+                        if (added) {
+                          setWatchAdded(result.domain);
+                          setTimeout(() => setWatchAdded(null), 3000);
+                        } else {
+                          setWatchAdded(result.domain);
+                          setTimeout(() => setWatchAdded(null), 1500);
+                        }
+                      }}
+                      className="btn-ghost inline-flex min-h-[52px] w-full items-center justify-center rounded-full text-sm font-semibold"
+                    >
+                      {watchAdded === result.domain ? "Added To Watchlist" : "Notify When Available"}
+                    </button>
+                  ) : (
+                    <button type="button" className="btn-ghost inline-flex min-h-[52px] w-full items-center justify-center rounded-full text-sm font-semibold">
+                      Check Again Later
+                    </button>
+                  )}
+                  <Link href="/watchlist" className="rounded-full border border-black bg-white px-5 py-3 text-center text-sm font-semibold text-black">
+                    Open Watchlist
+                  </Link>
+                </div>
+              </SectionCard>
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
+          <div className="panel-white rounded-[28px] p-8">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="panel-white-soft rounded-[22px] p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Valuation Engine</p>
+                <p className="mt-3 text-2xl font-semibold text-black">Anchor-aware</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Benchmark-normalized market ranges and believable score-weighted estimates.</p>
               </div>
-            </>
-          ) : (
-            <div className="border-2 border-black rounded-lg bg-card p-8">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="border-2 border-black rounded-lg bg-background p-6">
-                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Availability</p>
-                  <p className="mt-4 text-2xl font-bold text-foreground">RDAP-backed</p>
-                  <p className="mt-3 text-sm leading-6 text-foreground">Registrar-style ownership status and registration metadata.</p>
-                </div>
-                <div className="border-2 border-black rounded-lg bg-background p-6">
-                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Projection</p>
-                  <p className="mt-4 text-2xl font-bold text-foreground">Scenario range</p>
-                  <p className="mt-3 text-sm leading-6 text-foreground">Conservative value projections from domain and market signals.</p>
-                </div>
-                <div className="border-2 border-black rounded-lg bg-background p-6">
-                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Comparison</p>
-                  <p className="mt-4 text-2xl font-bold text-foreground">Portfolio-ready</p>
-                  <p className="mt-3 text-sm leading-6 text-foreground">Compare candidate domains side by side before acting.</p>
-                </div>
+              <div className="panel-white-soft rounded-[22px] p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">RDAP Lookup</p>
+                <p className="mt-3 text-2xl font-semibold text-black">Technical</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Registrar history, ownership posture, expiry windows, and status metadata.</p>
+              </div>
+              <div className="panel-white-soft rounded-[22px] p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Comparison Layer</p>
+                <p className="mt-3 text-2xl font-semibold text-black">Portfolio-ready</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Compare candidate domains and monitor valuation posture before acting.</p>
               </div>
             </div>
-          )}
+          </div>
         </section>
-      </section>
+      )}
     </main>
   );
 }
