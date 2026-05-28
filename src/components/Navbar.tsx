@@ -1,72 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    function onScroll() {
-      setScrolled(window.scrollY > 10);
-    }
-
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
-    <header
-      className={`fixed inset-x-0 top-0 z-50 border-b transition-all ${
-        scrolled
-          ? "border-[#e6e7eb] bg-[rgba(247,244,239,0.96)]"
-          : "border-transparent bg-[rgba(247,244,239,0.92)]"
-      }`}
-    >
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 sm:px-8 lg:px-12">
-        <div className="flex items-center gap-10">
-          <Link
-            href="/"
-            className="text-sm font-semibold tracking-[0.22em] text-slate-900 uppercase"
-          >
-            <span className="text-[#F48120]">Domain</span>Flip AI
-          </Link>
-          <nav className="hidden items-center gap-6 md:flex">
-            <Link href="/#features" className="text-sm font-medium text-slate-600 hover:text-slate-900">
-              Features
-            </Link>
-            <Link
-              href="/#portfolio"
-              className="text-sm font-medium text-slate-600 hover:text-slate-900"
-            >
-              Portfolio
-            </Link>
-            <Link
-              href="/#market-insights"
-              className="text-sm font-medium text-slate-600 hover:text-slate-900"
-            >
-              Market
-            </Link>
-          </nav>
-        </div>
+    <>
+      {/* Announcement bar */}
+      <div className="border-b-2 border-black bg-slate-100 px-6 py-2 text-center text-sm font-medium text-foreground sm:px-8 lg:px-12">
+        Market data layer now active →
+      </div>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/watchlist"
-            className="secondary-button inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium"
-          >
-            Watchlist
-          </Link>
+      {/* Main navbar */}
+      <nav className="border-b-2 border-black bg-card">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 sm:px-8 lg:px-12">
+          {/* Left: Logo + Nav Links */}
+          <div className="flex items-center gap-8">
+            <Link href="/" className="text-2xl font-bold text-foreground">
+              <span className="text-accent-lime">Domain</span>Tools
+            </Link>
+
+            {/* Nav links - hidden on mobile */}
+            <div className="hidden items-center gap-6 md:flex">
+              <a href="#products" className="font-medium text-foreground hover:text-button-purple transition-colors">
+                Products
+              </a>
+              <a href="#market" className="font-medium text-foreground hover:text-button-purple transition-colors">
+                Market
+              </a>
+              <Link href="/watchlist" className="font-medium text-foreground hover:text-button-purple transition-colors">
+                Watchlist
+              </Link>
+              <Link href="/analyze" className="font-medium text-foreground hover:text-button-purple transition-colors">
+                Analyze
+              </Link>
+            </div>
+          </div>
+
+          {/* Right: CTA button */}
           <Link
             href="/analyze"
-            className="accent-button inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium"
+            className="btn-purple inline-flex rounded-lg px-5 py-3 text-sm font-medium"
           >
-            Analyze domain
+            Analyze Domain
           </Link>
         </div>
-      </div>
-    </header>
+      </nav>
+    </>
   );
 }

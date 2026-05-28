@@ -1,23 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f4ef;
-  --background-strong: #f2ede6;
-  --card: #ffffff;
-  --card-muted: #fbfaf8;
-  --foreground: #1f2937;
-  --foreground-strong: #0f172a;
-  --muted: #667085;
-  --border: #e6e7eb;
-  --accent: #f48120;
-  --accent-strong: #d96d14;
-  --accent-soft: #fff2e8;
-  --success: #067647;
-  --success-soft: #ecfdf3;
-  --warning: #b54708;
-  --warning-soft: #fff7ed;
-  --danger: #b42318;
-  --danger-soft: #fef3f2;
+  --background: #ECECEA;
+  --card: #F3F3F1;
+  --card-secondary: #D9D9D6;
+  --foreground: #111111;
+  --muted: #555555;
+  --border: #111111;
+  --accent-lime: #B8FF2C;
+  --accent-lime-bg: rgba(184, 255, 44, 0.12);
+  --button-purple: #7385F6;
+  --button-purple-bg: rgba(115, 133, 246, 0.12);
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --danger: #dc2626;
 }
 
 @theme inline {
@@ -63,8 +59,8 @@ input {
 }
 
 ::selection {
-  background: #fde6d4;
-  color: var(--foreground-strong);
+  background: var(--accent-lime-bg);
+  color: var(--foreground);
 }
 
 .shell {
@@ -74,45 +70,85 @@ input {
 
 .surface {
   background: var(--card);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  border: 2px solid var(--border);
+  box-shadow: none;
 }
 
 .surface-muted {
-  background: var(--card-muted);
-  border: 1px solid var(--border);
+  background: var(--card-secondary);
+  border: 2px solid var(--border);
+  box-shadow: none;
 }
 
 .surface-strong {
   background: var(--card);
-  border: 1px solid #dfe2e7;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.04),
-    0 12px 24px rgba(16, 24, 40, 0.04);
+  border: 2px solid var(--border);
+  box-shadow: none;
 }
 
 .dashboard-grid {
-  background: var(--background-strong);
+  background: var(--background);
 }
 
-.accent-button {
-  background: var(--accent);
+/* Lime accent button */
+.btn-lime {
+  background: var(--accent-lime);
+  color: #111111;
+  border: 2px solid var(--accent-lime);
+  font-weight: 600;
+}
+
+.btn-lime:hover {
+  opacity: 0.9;
+}
+
+/* Purple CTA button */
+.btn-purple {
+  background: var(--button-purple);
   color: white;
-  border: 1px solid var(--accent);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+  border: 2px solid var(--button-purple);
+  font-weight: 600;
 }
 
-.accent-button:hover {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+.btn-purple:hover {
+  opacity: 0.9;
 }
 
+/* Secondary button */
 .secondary-button {
   background: var(--card);
-  color: var(--foreground-strong);
-  border: 1px solid var(--border);
+  color: var(--foreground);
+  border: 2px solid var(--border);
+  font-weight: 500;
 }
 
 .secondary-button:hover {
-  background: #f8fafc;
+  background: var(--card-secondary);
+}
+
+/* Accent links */
+a {
+  color: var(--button-purple);
+}
+
+a:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
+/* Monospace for domain/technical data */
+.font-mono-data {
+  font-family: "Courier New", monospace;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+/* Lime highlight utility */
+.bg-lime-accent {
+  background: var(--accent-lime);
+  color: #111111;
+}
+
+.text-lime-accent {
+  color: var(--accent-lime);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import DomainComparisonChart from "@/components/DomainComparisonChart";
 import ValueProjectionChart from "@/components/ValueProjectionChart";
 import type { InvestmentReport } from "@/lib/investmentReport";
@@ -71,15 +72,9 @@ const BREAKDOWN_MAX: Record<string, number> = {
 };
 
 function formatDate(dateString: string | null) {
-  if (!dateString) {
-    return "Not available";
-  }
-
+  if (!dateString) return "Not available";
   const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) {
-    return "Not available";
-  }
-
+  if (Number.isNaN(date.getTime())) return "Not available";
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "short",
@@ -88,39 +83,29 @@ function formatDate(dateString: string | null) {
 }
 
 function badgeForAvailability(value: ApiResult["availabilityStatus"]) {
-  if (value === "Available") {
-    return "border-[#b7e4c7] bg-[#ecfdf3] text-[#067647]";
-  }
-
-  if (value === "Taken") {
-    return "border-[#d9dde5] bg-[#f8fafc] text-slate-700";
-  }
-
-  return "border-[#fed7aa] bg-[#fff7ed] text-[#b54708]";
+  if (value === "Available") return "bg-accent-lime text-foreground";
+  if (value === "Taken") return "bg-card text-foreground";
+  return "bg-background text-foreground";
 }
 
 function badgeForRisk(value: ApiResult["riskLevel"]) {
-  if (value === "Low") {
-    return "border-[#b7e4c7] bg-[#ecfdf3] text-[#067647]";
-  }
-
-  if (value === "Medium") {
-    return "border-[#fed7aa] bg-[#fff7ed] text-[#b54708]";
-  }
-
-  return "border-[#fecaca] bg-[#fef3f2] text-[#b42318]";
+  if (value === "Low") return "bg-accent-lime text-foreground";
+  return "bg-background text-foreground";
 }
 
 function badgeForRecommendation(value: InvestmentReport["recommendation"]) {
-  if (value === "Buy") {
-    return "border-[#f2d7c0] bg-[#fff2e8] text-[#b54708]";
-  }
+  if (value === "Buy") return "bg-accent-lime text-foreground";
+  if (value === "Watch") return "bg-card text-foreground";
+  return "bg-background text-foreground";
+}
 
-  if (value === "Watch") {
-    return "border-[#d9dde5] bg-[#f8fafc] text-slate-700";
-  }
-
-  return "border-[#fecaca] bg-[#fef3f2] text-[#b42318]";
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-2 border-black rounded-lg bg-card p-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-foreground">{label}</p>
+      <p className="mt-3 text-lg font-bold font-mono-data text-accent-lime">{value}</p>
+    </div>
+  );
 }
 
 export default function AnalyzePage() {
@@ -155,11 +140,7 @@ export default function AnalyzePage() {
       setError("");
     } catch (caughtError) {
       setResult(null);
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to analyze that domain.",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to analyze that domain.");
     } finally {
       setIsLoading(false);
     }
@@ -189,11 +170,7 @@ export default function AnalyzePage() {
       setCompareError("");
     } catch (caughtError) {
       setCompareResult(null);
-      setCompareError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to compare that domain.",
-      );
+      setCompareError(caughtError instanceof Error ? caughtError.message : "Unable to compare that domain.");
     } finally {
       setIsCompareLoading(false);
     }
@@ -201,8 +178,7 @@ export default function AnalyzePage() {
 
   const comparisonVerdict =
     result && compareResult
-      ? result.score > compareResult.score &&
-        result.investmentScore >= compareResult.investmentScore
+      ? result.score > compareResult.score && result.investmentScore >= compareResult.investmentScore
         ? `${result.domain} appears stronger for resale potential.`
         : compareResult.brandPrestigeScore > result.brandPrestigeScore
           ? `${compareResult.domain} appears stronger for brand value.`
@@ -210,87 +186,67 @@ export default function AnalyzePage() {
       : null;
 
   return (
-    <main className="pb-16">
-      <section className="mb-8">
-        <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
-            Domain intelligence workspace
-          </p>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-            Analyze domains like a registrar-grade dashboard.
+    <main className="pb-16 pt-4">
+      <section className="mb-8 border-b-2 border-black pb-8">
+        <div className="mx-auto max-w-6xl px-6 sm:px-8 lg:px-12">
+          <p className="text-sm font-bold uppercase tracking-wide text-foreground">Investigation workspace</p>
+          <h1 className="mt-3 text-5xl font-extrabold leading-tight text-foreground sm:text-6xl">
+            Analyze domains like a registrar intelligence dashboard.
           </h1>
-          <p className="max-w-3xl text-base leading-7 text-slate-600">
-            Review ownership data, market heuristics, score composition, domain status,
-            and projected scenario ranges inside a structured platform-style layout.
+          <p className="mt-4 max-w-3xl text-lg leading-7 text-foreground">
+            Review ownership data, market heuristics, score composition, and investment potential inside a structured platform-style layout.
           </p>
         </div>
       </section>
 
-      <section className="grid items-start gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <section className="mx-auto grid max-w-6xl items-start gap-6 px-6 sm:px-8 lg:px-12 xl:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="space-y-6 xl:sticky xl:top-28">
-          <div className="surface-strong rounded-3xl p-6">
-            <div className="border-b border-[#eceef2] pb-4">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                Search workspace
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                Analyze a domain
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+          <div className="border-2 border-black rounded-lg bg-card p-6">
+            <div className="border-b-2 border-black pb-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground">Search workspace</p>
+              <h2 className="mt-3 text-2xl font-bold text-foreground">Analyze a domain</h2>
+              <p className="mt-2 text-sm leading-6 text-foreground">
                 Enter a raw domain or full URL to normalize, score, and inspect registration details.
               </p>
             </div>
 
             <div className="mt-5 space-y-4">
               <div>
-                <label htmlFor="domain" className="block text-sm font-medium text-slate-700">
-                  Domain input
-                </label>
+                <label htmlFor="domain" className="block text-sm font-bold text-foreground">Domain input</label>
                 <input
                   id="domain"
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      handleAnalyze();
-                    }
+                    if (event.key === "Enter") handleAnalyze();
                   }}
                   placeholder="example.com"
-                  className="mt-2 min-h-12 w-full rounded-xl border border-[#dfe2e7] bg-white px-4 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#F48120] focus:ring-2 focus:ring-[#fde6d4]"
+                  className="mt-3 min-h-12 w-full rounded-lg border-2 border-black bg-background px-4 text-base text-foreground outline-none placeholder:text-foreground/50 focus:ring-2 focus:ring-button-purple"
                 />
               </div>
 
-              <div className="surface-muted rounded-2xl p-4 text-sm leading-6 text-slate-600">
-                RDAP ownership checks run from the backend. Market pricing remains a lightweight signal in this MVP.
+              <div className="border-2 border-black rounded-lg bg-background p-4 text-sm leading-6 text-foreground">
+                RDAP ownership checks run from the backend. Market pricing is normalized against TLD weights.
               </div>
 
               <button
                 type="button"
                 onClick={handleAnalyze}
                 disabled={isLoading}
-                className="accent-button inline-flex min-h-12 w-full items-center justify-center rounded-xl px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-70"
+                className="btn-lime inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold disabled:opacity-70"
               >
                 {isLoading ? "Analyzing..." : "Analyze domain"}
               </button>
 
-              {error ? (
-                <div className="rounded-2xl border border-[#fecaca] bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">
-                  {error}
-                </div>
-              ) : null}
+              {error ? <div className="rounded-lg border-2 border-black bg-background px-4 py-3 text-sm text-foreground">{error}</div> : null}
             </div>
           </div>
 
-          <div className="surface rounded-3xl p-6">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-              Comparison
-            </p>
+          <div className="border-2 border-black rounded-lg bg-card p-6">
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground">Comparison</p>
             <div className="mt-4 space-y-4">
               <div>
-                <label
-                  htmlFor="compare-domain"
-                  className="block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="compare-domain" className="block text-sm font-bold text-foreground">
                   Compare with another domain
                 </label>
                 <input
@@ -298,38 +254,30 @@ export default function AnalyzePage() {
                   value={compareInput}
                   onChange={(event) => setCompareInput(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      handleCompare();
-                    }
+                    if (event.key === "Enter") handleCompare();
                   }}
                   placeholder="anotherdomain.com"
-                  className="mt-2 min-h-12 w-full rounded-xl border border-[#dfe2e7] bg-white px-4 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#F48120] focus:ring-2 focus:ring-[#fde6d4]"
+                  className="mt-3 min-h-12 w-full rounded-lg border-2 border-black bg-background px-4 text-base text-foreground outline-none placeholder:text-foreground/50 focus:ring-2 focus:ring-button-purple"
                 />
               </div>
               <button
                 type="button"
                 onClick={handleCompare}
                 disabled={!result || isCompareLoading}
-                className="secondary-button inline-flex min-h-12 w-full items-center justify-center rounded-xl px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-70"
+                className="btn-purple inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold disabled:opacity-70"
               >
                 {isCompareLoading ? "Comparing..." : "Compare"}
               </button>
-              {compareError ? (
-                <div className="rounded-2xl border border-[#fecaca] bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">
-                  {compareError}
-                </div>
-              ) : null}
+              {compareError ? <div className="rounded-lg border-2 border-black bg-background px-4 py-3 text-sm text-foreground">{compareError}</div> : null}
             </div>
           </div>
 
-          <div className="surface rounded-3xl p-6">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-              Methodology
-            </p>
-            <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
-              <li>Scores blend domain quality, market heuristics, and verified registration history.</li>
-              <li>Taken domains are not automatically premium; lifecycle quality only adds modest credibility.</li>
-              <li>Projections are conservative scenario estimates, not guaranteed outcomes.</li>
+          <div className="border-2 border-black rounded-lg bg-card p-6">
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground">Methodology</p>
+            <ul className="mt-4 space-y-3 text-sm leading-7 text-foreground">
+              <li>• Scores blend domain quality, market heuristics, and registration history.</li>
+              <li>• TLD-adjusted valuations prevent unrealistic comparisons.</li>
+              <li>• Projections are conservative scenario estimates.</li>
             </ul>
           </div>
         </aside>
@@ -337,62 +285,33 @@ export default function AnalyzePage() {
         <section className="space-y-6">
           {result ? (
             <>
-              <div className="surface-strong rounded-3xl p-6">
-                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px]">
+              <div className="border-2 border-black rounded-lg bg-card p-8">
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Domain overview
+                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Domain overview</p>
+                    <h2 className="mt-3 text-4xl font-extrabold font-mono-data text-foreground">{result.domain}</h2>
+                    <p className="mt-4 max-w-2xl text-base leading-7 text-foreground">
+                      Structured domain assessment with ownership context, registration signals, resale heuristics, and registrar-style availability handling.
                     </p>
-                    <h2 className="mt-2 text-3xl font-semibold text-slate-950">
-                      {result.domain}
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                      Structured domain assessment with ownership context, registration signals,
-                      resale heuristics, and registrar-style availability handling.
-                    </p>
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <span className="rounded-full border border-[#d9dde5] bg-white px-3 py-1 text-sm font-medium text-slate-700">
-                        {result.verdict}
-                      </span>
-                      <span
-                        className={`rounded-full border px-3 py-1 text-sm font-medium ${badgeForRisk(
-                          result.riskLevel,
-                        )}`}
-                      >
-                        Risk: {result.riskLevel}
-                      </span>
-                      <span
-                        className={`rounded-full border px-3 py-1 text-sm font-medium ${badgeForAvailability(
-                          result.availabilityStatus,
-                        )}`}
-                      >
-                        {result.availabilityStatus}
-                      </span>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      <span className="rounded-lg border-2 border-black bg-card px-4 py-2 text-sm font-bold text-foreground">{result.verdict}</span>
+                      <span className={`rounded-lg border-2 border-black px-4 py-2 text-sm font-bold ${badgeForRisk(result.riskLevel)}`}>Risk: {result.riskLevel}</span>
+                      <span className={`rounded-lg border-2 border-black px-4 py-2 text-sm font-bold ${badgeForAvailability(result.availabilityStatus)}`}>{result.availabilityStatus}</span>
                     </div>
                   </div>
 
-                  <div className="surface rounded-3xl p-5">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Composite score
-                    </p>
-                    <p className="mt-3 text-5xl font-semibold tracking-tight text-slate-950">
-                      {result.score}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">out of 100</p>
-                    <div className="mt-4 h-2 rounded-full bg-[#eceef2]">
-                      <div
-                        className="h-2 rounded-full bg-[#F48120]"
-                        style={{ width: `${Math.max(10, result.score)}%` }}
-                      />
-                    </div>
-                    <div className="mt-5 grid gap-2 text-sm">
-                      <div className="flex items-center justify-between rounded-xl border border-[#eceef2] bg-[#fbfaf8] px-3 py-2">
-                        <span className="text-slate-600">Rule score</span>
-                        <span className="font-medium text-slate-900">{result.ruleScore}</span>
+                  <div className="border-2 border-black rounded-lg bg-accent-lime p-6">
+                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Composite score</p>
+                    <p className="mt-4 text-6xl font-extrabold text-foreground">{result.score}</p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">out of 100</p>
+                    <div className="mt-6 space-y-2 text-sm">
+                      <div className="flex items-center justify-between rounded-lg border-2 border-black bg-background px-4 py-3">
+                        <span className="font-semibold text-foreground">Rule score</span>
+                        <span className="font-mono-data font-bold text-foreground">{result.ruleScore}</span>
                       </div>
-                      <div className="flex items-center justify-between rounded-xl border border-[#eceef2] bg-[#fbfaf8] px-3 py-2">
-                        <span className="text-slate-600">Market score</span>
-                        <span className="font-medium text-slate-900">{result.marketScore}</span>
+                      <div className="flex items-center justify-between rounded-lg border-2 border-black bg-background px-4 py-3">
+                        <span className="font-semibold text-foreground">Market score</span>
+                        <span className="font-mono-data font-bold text-foreground">{result.marketScore}</span>
                       </div>
                     </div>
                   </div>
@@ -400,289 +319,178 @@ export default function AnalyzePage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-                {[
-                  ["TLD", `.${result.tld}`],
-                  ["Name", result.name],
-                  ["Availability", result.availabilityStatus],
-                  ["Investment score", `${result.investmentScore}`],
-                  ["Brand prestige", `${result.brandPrestigeScore}`],
-                  ["Registrar", result.rdap.registrar ?? "Not available"],
-                  ["Created", formatDate(result.rdap.createdAt)],
-                  ["Expires", formatDate(result.rdap.expiresAt)],
-                  ["Estimated value", `$${result.adjustedEstimatedValueUsd?.toLocaleString?.() ?? result.adjustedEstimatedValueUsd}`],
-                  ["Comparable sales", `${result.marketData?.comparableSalesCount ?? result.comparableSalesCount ?? 0}`],
-                ].map(([label, value]) => (
-                  <div key={label} className="surface rounded-2xl p-4">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      {label}
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-slate-950">{value}</p>
-                  </div>
-                ))}
+                <StatCard label="TLD" value={`.${result.tld}`} />
+                <StatCard label="Name" value={result.name} />
+                <StatCard label="Availability" value={result.availabilityStatus} />
+                <StatCard label="Investment score" value={`${result.investmentScore}`} />
+                <StatCard label="Brand prestige" value={`${result.brandPrestigeScore}`} />
+                <StatCard label="Registrar" value={result.rdap.registrar ?? "Not available"} />
+                <StatCard label="Created" value={formatDate(result.rdap.createdAt)} />
+                <StatCard label="Expires" value={formatDate(result.rdap.expiresAt)} />
+                <StatCard label="Estimated value" value={`$${result.adjustedEstimatedValueUsd.toLocaleString()}`} />
+                <StatCard label="Comparable sales" value={`${result.marketData?.comparableSalesCount ?? result.comparableSalesCount ?? 0}`} />
               </div>
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_380px]">
                 <div className="space-y-6">
-                  <div className="surface-strong rounded-3xl p-6">
-                    <div className="flex flex-col gap-2 border-b border-[#eceef2] pb-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="border-2 border-black rounded-lg bg-card p-8">
+                    <div className="flex flex-col gap-2 border-b-2 border-black pb-6 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          TLD Market Benchmark
-                        </p>
-                        <h3 className="mt-2 text-2xl font-semibold text-slate-950">
-                          Historical anchor normalization
-                        </h3>
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">TLD Market Benchmark</p>
+                        <h3 className="mt-3 text-2xl font-bold text-foreground">Historical anchor normalization</h3>
                       </div>
-                      <div className="rounded-full border border-[#d9dde5] bg-white px-3 py-1 text-sm font-medium text-slate-700">
-                        Liquidity score: {result.liquidityScore}
-                      </div>
+                      <div className="border-2 border-black bg-background px-4 py-2 rounded-lg text-sm font-bold text-foreground">Liquidity: {result.liquidityScore}</div>
                     </div>
-                    <div className="mt-5 grid gap-4 md:grid-cols-3">
-                      <div className="surface rounded-2xl p-4">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          TLD Market Benchmark
-                        </p>
-                        <p className="mt-2 text-lg font-semibold text-slate-950">
-                          ${result.tldMarketAnchorUsd.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="surface rounded-2xl p-4">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Adjusted Estimated Value
-                        </p>
-                        <p className="mt-2 text-lg font-semibold text-slate-950">
-                          ${result.adjustedEstimatedValueUsd.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="surface rounded-2xl p-4">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Raw Appraisal Signal
-                        </p>
-                        <p className="mt-2 text-lg font-semibold text-slate-950">
-                          ${result.estimatedValueUsd.toLocaleString()}
-                        </p>
-                      </div>
+                    <div className="mt-6 grid gap-4 md:grid-cols-3">
+                      <StatCard label="TLD Market Benchmark" value={`$${result.tldMarketAnchorUsd.toLocaleString()}`} />
+                      <StatCard label="Adjusted Value" value={`$${result.adjustedEstimatedValueUsd.toLocaleString()}`} />
+                      <StatCard label="Raw Appraisal" value={`$${result.estimatedValueUsd.toLocaleString()}`} />
                     </div>
-                    <p className="mt-4 text-sm leading-7 text-slate-600">
-                      Based on recent historical sales references. External appraisal-style estimates remain one signal only and are normalized against TLD liquidity and resale reality.
+                    <p className="mt-6 text-sm leading-7 text-foreground">
+                      Based on historical sales references. Appraisal estimates are normalized against TLD market weight and resale liquidity.
                     </p>
                   </div>
 
-                  <div className="surface-strong rounded-3xl p-6">
-                    <div className="flex flex-col gap-2 border-b border-[#eceef2] pb-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="border-2 border-black rounded-lg bg-card p-8">
+                    <div className="flex flex-col gap-2 border-b-2 border-black pb-6 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Value projection
-                        </p>
-                        <h3 className="mt-2 text-2xl font-semibold text-slate-950">
-                          Projected scenario range
-                        </h3>
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Value projection</p>
+                        <h3 className="mt-3 text-2xl font-bold text-foreground">Projected scenario range</h3>
                       </div>
-                      <div className="rounded-full border border-[#d9dde5] bg-white px-3 py-1 text-sm font-medium text-slate-700">
+                      <div className="border-2 border-black bg-background px-4 py-2 rounded-lg text-sm font-bold text-foreground">
                         Confidence: {result.valueProjection.confidence}
                       </div>
                     </div>
-                    <div className="mt-5">
+                    <div className="mt-6">
                       <ValueProjectionChart projection={result.valueProjection} />
                     </div>
-                    <p className="mt-4 text-sm leading-7 text-slate-600">
+                    <p className="mt-6 text-sm leading-7 text-foreground">
                       Projection is estimated from scoring signals and market data. It is not a guaranteed resale outcome.
                     </p>
                   </div>
 
-                  <div className="surface-strong rounded-3xl p-6">
-                    <div className="flex flex-col gap-3 border-b border-[#eceef2] pb-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="border-2 border-black rounded-lg bg-card p-8">
+                    <div className="flex flex-col gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Investment report
-                        </p>
-                        <h3 className="mt-2 text-2xl font-semibold text-slate-950">
-                          Deterministic recommendation
-                        </h3>
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Investment report</p>
+                        <h3 className="mt-3 text-2xl font-bold text-foreground">Deterministic recommendation</h3>
                       </div>
-                      <span
-                        className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${badgeForRecommendation(
-                          result.investmentReport.recommendation,
-                        )}`}
-                      >
+                      <span className={`inline-flex rounded-lg border-2 border-black px-4 py-2 text-sm font-bold ${badgeForRecommendation(result.investmentReport.recommendation)}`}>
                         {result.investmentReport.recommendation}
                       </span>
                     </div>
 
-                    <p className="mt-5 text-sm leading-7 text-slate-600">
-                      {result.investmentReport.summary}
-                    </p>
+                    <p className="mt-6 text-sm leading-7 text-foreground">{result.investmentReport.summary}</p>
 
-                    <div className="mt-5 grid gap-6 xl:grid-cols-2">
-                      <section className="surface-muted rounded-2xl p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Reasons to buy
-                        </p>
-                        <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
-                          {result.investmentReport.reasonsToBuy.map((reason) => (
-                            <li key={reason} className="border-b border-[#eceef2] pb-3 last:border-b-0 last:pb-0">
-                              {reason}
-                            </li>
+                    <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                      <section className="border-2 border-black rounded-lg bg-background p-5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Reasons to buy</p>
+                        <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
+                          {result.investmentReport.reasonsToBuy.map((reason: string) => (
+                            <li key={reason} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {reason}</li>
                           ))}
                         </ul>
                       </section>
 
-                      <section className="surface-muted rounded-2xl p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Reasons to avoid
-                        </p>
-                        <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
-                          {result.investmentReport.reasonsToAvoid.map((reason) => (
-                            <li key={reason} className="border-b border-[#eceef2] pb-3 last:border-b-0 last:pb-0">
-                              {reason}
-                            </li>
+                      <section className="border-2 border-black rounded-lg bg-background p-5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Reasons to avoid</p>
+                        <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
+                          {result.investmentReport.reasonsToAvoid.map((reason: string) => (
+                            <li key={reason} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {reason}</li>
                           ))}
                         </ul>
                       </section>
                     </div>
 
                     <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                      <div className="surface rounded-2xl p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Best use cases
-                        </p>
-                        <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
-                          {result.investmentReport.bestUseCases.map((useCase) => (
-                            <li key={useCase} className="border-b border-[#eceef2] pb-3 last:border-b-0 last:pb-0">
-                              {useCase}
-                            </li>
+                      <div className="border-2 border-black rounded-lg bg-background p-5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Best use cases</p>
+                        <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
+                          {result.investmentReport.bestUseCases.map((useCase: string) => (
+                            <li key={useCase} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {useCase}</li>
                           ))}
                         </ul>
                       </div>
 
-                      <div className="surface rounded-2xl p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Buyer profile
-                        </p>
-                        <p className="mt-4 text-sm leading-7 text-slate-600">
-                          {result.investmentReport.idealBuyerProfile}
-                        </p>
-                        <div className="mt-5 rounded-2xl border border-[#eceef2] bg-[#fbfaf8] px-4 py-3">
-                          <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                            Resale potential
-                          </p>
-                          <p className="mt-2 text-lg font-semibold text-slate-950">
-                            {result.investmentReport.resalePotential}
-                          </p>
+                      <div className="border-2 border-black rounded-lg bg-background p-5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Buyer profile</p>
+                        <p className="mt-4 text-sm leading-6 text-foreground">{result.investmentReport.idealBuyerProfile}</p>
+                        <div className="mt-4 border-2 border-black rounded-lg bg-accent-lime px-4 py-3">
+                          <p className="text-xs font-bold uppercase tracking-wide text-foreground">Resale potential</p>
+                          <p className="mt-2 text-lg font-bold text-foreground">{result.investmentReport.resalePotential}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-6 grid gap-4">
-                      <div className="surface rounded-2xl p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Acquisition strategy
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-600">
-                          {result.investmentReport.acquisitionStrategy}
-                        </p>
+                    <div className="mt-6 space-y-4">
+                      <div className="border-2 border-black rounded-lg bg-background p-5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Acquisition strategy</p>
+                        <p className="mt-3 text-sm leading-6 text-foreground">{result.investmentReport.acquisitionStrategy}</p>
                       </div>
-                      <div className="surface rounded-2xl p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Risk explanation
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-600">
-                          {result.investmentReport.riskExplanation}
-                        </p>
+                      <div className="border-2 border-black rounded-lg bg-background p-5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Risk explanation</p>
+                        <p className="mt-3 text-sm leading-6 text-foreground">{result.investmentReport.riskExplanation}</p>
                       </div>
-                      <div className="surface rounded-2xl p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Final verdict
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-600">
-                          {result.investmentReport.finalVerdict}
-                        </p>
+                      <div className="border-2 border-black rounded-lg bg-background p-5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Final verdict</p>
+                        <p className="mt-3 text-sm leading-6 text-foreground">{result.investmentReport.finalVerdict}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="surface-strong rounded-3xl p-6">
-                    <div className="flex flex-col gap-2 border-b border-[#eceef2] pb-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="border-2 border-black rounded-lg bg-card p-8">
+                    <div className="flex flex-col gap-2 border-b-2 border-black pb-6 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Score breakdown
-                        </p>
-                        <h3 className="mt-2 text-2xl font-semibold text-slate-950">
-                          Component contribution
-                        </h3>
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Score breakdown</p>
+                        <h3 className="mt-3 text-2xl font-bold text-foreground">Component contribution</h3>
                       </div>
-                      <p className="text-sm text-slate-500">
-                        Positive categories add value. Risk penalties reduce the final score.
-                      </p>
+                      <p className="text-sm text-foreground">Categories add value. Risk penalties reduce the score.</p>
                     </div>
 
-                    <div className="mt-5 grid gap-3 xl:grid-cols-2">
-                      {(Object.entries(result.breakdown || {}) as Array<[string, number]>).map(
-                        ([key, value]) => {
-                          const isPenalty = key === "riskPenalties";
-                          const max = BREAKDOWN_MAX[key];
-                          const width = max ? Math.max(8, (value / max) * 100) : 10;
-
-                          return (
-                            <div key={key} className="surface-muted rounded-2xl p-4">
-                              <div className="flex items-center justify-between gap-4">
-                                <div>
-                                  <p className="text-sm font-medium text-slate-900">
-                                    {BREAKDOWN_LABELS[key] ?? key}
-                                  </p>
-                                  <p className="mt-1 text-xs text-slate-500">
-                                    {isPenalty ? "Penalty category" : "Positive category"}
-                                  </p>
-                                </div>
-                                <p className={`text-sm font-semibold ${isPenalty ? "text-[#b42318]" : "text-slate-900"}`}>
-                                  {isPenalty ? "-" : "+"}
-                                  {value}
-                                  <span className="ml-1 text-slate-500">/ {max}</span>
-                                </p>
+                    <div className="mt-6 grid gap-3 xl:grid-cols-2">
+                      {(Object.entries(result.breakdown || {}) as Array<[string, number]>).map(([key, value]) => {
+                        const isPenalty = key === "riskPenalties";
+                        const max = BREAKDOWN_MAX[key];
+                        const width = max ? Math.max(8, (value / max) * 100) : 10;
+                        return (
+                          <div key={key} className="border-2 border-black rounded-lg bg-background p-4">
+                            <div className="flex items-center justify-between gap-4">
+                              <div>
+                                <p className="text-sm font-bold text-foreground">{BREAKDOWN_LABELS[key] ?? key}</p>
+                                <p className="mt-1 text-xs text-foreground/70">{isPenalty ? "Penalty" : "Positive"}</p>
                               </div>
-                              <div className="mt-3 h-2 rounded-full bg-[#eceef2]">
-                                <div
-                                  className={`h-2 rounded-full ${isPenalty ? "bg-[#d0d5dd]" : "bg-[#F48120]"}`}
-                                  style={{ width: `${width}%` }}
-                                />
-                              </div>
+                              <p className={`text-sm font-bold font-mono-data ${isPenalty ? "text-foreground" : "text-accent-lime"}`}>
+                                {isPenalty ? "-" : "+"}{value} / {max}
+                              </p>
                             </div>
-                          );
-                        },
-                      )}
+                            <div className="mt-3 h-3 rounded-lg border-2 border-black bg-background">
+                              <div className={`h-3 rounded-lg ${isPenalty ? "bg-foreground/30" : "bg-accent-lime"}`} style={{ width: `${width}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div className="grid gap-6 xl:grid-cols-2">
-                    <section className="surface rounded-3xl p-6">
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                        Strengths
-                      </p>
-                      <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
-                        {result.reasons.map((reason) => (
-                          <li key={reason} className="border-b border-[#f1f2f5] pb-3 last:border-b-0 last:pb-0">
-                            {reason}
-                          </li>
+                    <section className="border-2 border-black rounded-lg bg-card p-6">
+                      <p className="text-xs font-bold uppercase tracking-wide text-foreground">Strengths</p>
+                      <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
+                        {result.reasons.map((reason: string) => (
+                          <li key={reason} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {reason}</li>
                         ))}
                       </ul>
                     </section>
 
-                    <section className="surface rounded-3xl p-6">
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                        Weaknesses
-                      </p>
-                      <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+                    <section className="border-2 border-black rounded-lg bg-card p-6">
+                      <p className="text-xs font-bold uppercase tracking-wide text-foreground">Weaknesses</p>
+                      <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground">
                         {result.weaknesses.length > 0 ? (
-                          result.weaknesses.map((weakness) => (
-                            <li
-                              key={weakness}
-                              className="border-b border-[#f1f2f5] pb-3 last:border-b-0 last:pb-0"
-                            >
-                              {weakness}
-                            </li>
+                          result.weaknesses.map((weakness: string) => (
+                            <li key={weakness} className="border-b border-black pb-3 last:border-b-0 last:pb-0">• {weakness}</li>
                           ))
                         ) : (
-                          <li>No major weaknesses were flagged by the current rules.</li>
+                          <li>No major weaknesses flagged.</li>
                         )}
                       </ul>
                     </section>
@@ -691,50 +499,32 @@ export default function AnalyzePage() {
 
                 <div className="space-y-6">
                   {compareResult ? (
-                    <section className="surface-strong rounded-3xl p-6">
-                      <div className="flex flex-col gap-2 border-b border-[#eceef2] pb-4">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                          Domain comparison
-                        </p>
-                        <h3 className="text-2xl font-semibold text-slate-950">
-                          Compare projected strength
-                        </h3>
+                    <section className="border-2 border-black rounded-lg bg-card p-6">
+                      <div className="flex flex-col gap-2 border-b-2 border-black pb-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-foreground">Domain comparison</p>
+                        <h3 className="text-2xl font-bold text-foreground">Compare projected strength</h3>
                       </div>
                       <div className="mt-5">
                         <DomainComparisonChart primary={result} secondary={compareResult} />
                       </div>
-                      {comparisonVerdict ? (
-                        <p className="mt-4 text-sm leading-7 text-slate-600">
-                          {comparisonVerdict}
-                        </p>
-                      ) : null}
+                      {comparisonVerdict ? <p className="mt-4 text-sm leading-6 text-foreground">{comparisonVerdict}</p> : null}
                     </section>
                   ) : null}
 
-                  <section className="surface-strong rounded-3xl p-6">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Availability action
-                    </p>
-                    <div className="mt-3 flex items-center gap-3">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-sm font-medium ${badgeForAvailability(
-                          result.availabilityStatus,
-                        )}`}
-                      >
+                  <section className="border-2 border-black rounded-lg bg-card p-6">
+                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Availability action</p>
+                    <div className="mt-4 flex items-center gap-3">
+                      <span className={`rounded-lg border-2 border-black px-4 py-2 text-sm font-bold ${badgeForAvailability(result.availabilityStatus)}`}>
                         {result.availabilityStatus}
                       </span>
                     </div>
-                    <p className="mt-4 text-sm leading-7 text-slate-600">
-                      Ownership status is based on RDAP lookup data from the backend. This gives the
-                      workspace registrar-style lifecycle visibility without exposing raw protocol payloads.
+                    <p className="mt-5 text-sm leading-6 text-foreground">
+                      Ownership status is based on RDAP lookup data from the backend. This gives registrar-style visibility.
                     </p>
 
-                    <div className="mt-5">
+                    <div className="mt-6">
                       {result.availabilityStatus === "Available" ? (
-                        <button
-                          type="button"
-                          className="accent-button inline-flex min-h-12 w-full items-center justify-center rounded-xl px-5 text-sm font-medium"
-                        >
+                        <button type="button" className="btn-lime inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold">
                           Register domain
                         </button>
                       ) : result.availabilityStatus === "Taken" ? (
@@ -750,85 +540,51 @@ export default function AnalyzePage() {
                               registrar: result.rdap?.registrar ?? null,
                               expiresAt: result.rdap?.expiresAt ?? null,
                             });
-                            if (added) {
-                              setWatchAdded(result.domain);
-                              setTimeout(() => setWatchAdded(null), 3000);
-                            } else {
-                              setWatchAdded(result.domain);
-                              setTimeout(() => setWatchAdded(null), 1500);
-                            }
+                            setWatchAdded(result.domain);
+                            setTimeout(() => setWatchAdded(null), added ? 3000 : 1500);
                           }}
-                          className="secondary-button inline-flex min-h-12 w-full items-center justify-center rounded-xl px-5 text-sm font-medium"
+                          className="btn-purple inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold"
                         >
-                          {watchAdded === result.domain ? "Added to watchlist" : "Notify when available"}
+                          {watchAdded === result.domain ? "Added to watchlist" : "Watch domain"}
                         </button>
                       ) : (
-                        <button
-                          type="button"
-                          className="secondary-button inline-flex min-h-12 w-full items-center justify-center rounded-xl px-5 text-sm font-medium"
-                        >
+                        <button type="button" className="btn-purple inline-flex min-h-12 w-full items-center justify-center rounded-lg font-semibold">
                           Check again later
                         </button>
                       )}
                     </div>
                   </section>
 
-                  <section className="surface rounded-3xl p-6">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Domain status
-                    </p>
+                  <section className="border-2 border-black rounded-lg bg-card p-6">
+                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Domain status</p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {result.rdap.statuses.length > 0 ? (
-                        result.rdap.statuses.map((status) => (
-                          <span
-                            key={status}
-                            className="rounded-full border border-[#dfe2e7] bg-[#fbfaf8] px-3 py-1 text-sm font-medium text-slate-700"
-                          >
+                        result.rdap.statuses.map((status: string) => (
+                          <span key={status} className="rounded-lg border-2 border-black bg-background px-3 py-1 text-sm font-semibold text-foreground">
                             {status}
                           </span>
                         ))
                       ) : (
-                        <span className="rounded-full border border-[#dfe2e7] bg-[#fbfaf8] px-3 py-1 text-sm font-medium text-slate-500">
-                          No RDAP status flags returned
+                        <span className="rounded-lg border-2 border-black bg-background px-3 py-1 text-sm font-semibold text-foreground/70">
+                          No RDAP status flags
                         </span>
                       )}
                     </div>
                   </section>
 
-                  <section className="surface rounded-3xl p-6">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Resale signal
-                    </p>
-                    <div className="mt-4 space-y-3 text-sm text-slate-600">
-                      <div className="flex items-center justify-between">
-                        <span>Status</span>
-                        <span className="font-medium text-slate-900">{result.resaleStatus ?? "unknown"}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Marketplace</span>
-                        <span className="font-medium text-slate-900">
-                          {result.detectedMarketplace ?? result.marketplaceName ?? "Not detected"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Confidence</span>
-                        <span className="font-medium text-slate-900">{result.resaleConfidence ?? "low"}</span>
-                      </div>
+                  <section className="border-2 border-black rounded-lg bg-card p-6">
+                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Resale signal</p>
+                    <div className="mt-4 space-y-3 text-sm text-foreground">
+                      <div className="flex items-center justify-between border-b border-black pb-3"><span>Status</span><span className="font-bold">{result.resaleStatus ?? "unknown"}</span></div>
+                      <div className="flex items-center justify-between border-b border-black pb-3"><span>Marketplace</span><span className="font-bold">{result.detectedMarketplace ?? result.marketplaceName ?? "Not detected"}</span></div>
+                      <div className="flex items-center justify-between"><span>Confidence</span><span className="font-bold">{result.resaleConfidence ?? "low"}</span></div>
                     </div>
-                    <p className="mt-4 text-sm leading-7 text-slate-600">
-                      Marketplace detection is heuristic and should be verified manually before making acquisition decisions.
-                    </p>
+                    <p className="mt-4 text-xs text-foreground/70">Marketplace detection is heuristic. Verify manually before acting.</p>
 
                     {result.marketplaceLinks ? (
                       <div className="mt-4 flex flex-wrap gap-2">
                         {Object.entries(result.marketplaceLinks).map(([key, url]) => (
-                          <a
-                            key={key}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-lg border border-[#dfe2e7] bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 hover:text-slate-900"
-                          >
+                          <a key={key} href={url} target="_blank" rel="noreferrer" className="border-2 border-black bg-background rounded-lg px-3 py-2 text-xs font-bold text-foreground hover:bg-accent-lime transition-colors">
                             {key}
                           </a>
                         ))}
@@ -839,34 +595,22 @@ export default function AnalyzePage() {
               </div>
             </>
           ) : (
-            <div className="surface-strong rounded-3xl p-8">
+            <div className="border-2 border-black rounded-lg bg-card p-8">
               <div className="grid gap-4 md:grid-cols-3">
-                <div className="surface-muted rounded-2xl p-5">
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                    Availability
-                  </p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-950">RDAP-backed</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Registrar-style ownership status and registration metadata.
-                  </p>
+                <div className="border-2 border-black rounded-lg bg-background p-6">
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Availability</p>
+                  <p className="mt-4 text-2xl font-bold text-foreground">RDAP-backed</p>
+                  <p className="mt-3 text-sm leading-6 text-foreground">Registrar-style ownership status and registration metadata.</p>
                 </div>
-                <div className="surface-muted rounded-2xl p-5">
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                    Projection
-                  </p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-950">Scenario range</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Conservative value projections from current domain and market signals.
-                  </p>
+                <div className="border-2 border-black rounded-lg bg-background p-6">
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Projection</p>
+                  <p className="mt-4 text-2xl font-bold text-foreground">Scenario range</p>
+                  <p className="mt-3 text-sm leading-6 text-foreground">Conservative value projections from domain and market signals.</p>
                 </div>
-                <div className="surface-muted rounded-2xl p-5">
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                    Comparison
-                  </p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-950">Portfolio-ready</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Compare candidate domains side by side before acting.
-                  </p>
+                <div className="border-2 border-black rounded-lg bg-background p-6">
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Comparison</p>
+                  <p className="mt-4 text-2xl font-bold text-foreground">Portfolio-ready</p>
+                  <p className="mt-3 text-sm leading-6 text-foreground">Compare candidate domains side by side before acting.</p>
                 </div>
               </div>
             </div>
