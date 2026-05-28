@@ -36,6 +36,9 @@ export default function Navbar() {
           <a href="#market-insights" className="hidden text-sm font-medium text-slate-200 hover:text-white sm:inline">
             Market
           </a>
+          <Link href="/watchlist" className="hidden text-sm font-medium text-slate-200 hover:text-white sm:inline">
+            Watchlist
+          </Link>
           <Link
             href="/analyze"
             className="inline-flex items-center justify-center rounded-lg border border-cyan-600 bg-cyan-600/10 px-3 py-2 text-sm font-medium text-cyan-300 shadow-sm hover:bg-cyan-600/15"

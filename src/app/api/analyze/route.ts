@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
-import { analyzeRuleDomain, getVerdictFromScore, getRiskFromScore, STRONG_TLDS_MAP } from "@/lib/domainAnalyzer";
-import { getMockMarketData } from "@/lib/mockMarketData";
-import { getMockAvailabilityStatus } from "@/lib/domainAvailability";
+import {
+  analyzeRuleDomain,
+  getRiskFromScore,
+  getVerdictFromScore,
+  scoreRegistrationHistory,
+  STRONG_TLDS_MAP,
+} from "@/lib/domainAnalyzer";
+import { getMockMarketData, type MockMarketData } from "@/lib/mockMarketData";
+import { lookupRDAP } from "@/lib/rdap";
+import { getMarketplaceStatus } from "@/lib/domainMarketplace";
 
-async function computeMarketScore(marketData: any) {
+async function computeMarketScore(marketData: MockMarketData) {
   // Simple deterministic mapping to 0-100
   let score = 0;
 
@@ -37,14 +44,24 @@ export async function POST(request: Request) {
     // Run rule-based analysis
     const rule = analyzeRuleDomain(domain);
 
-    // Market data & availability
+    // Market data & RDAP lookup
     const marketData = getMockMarketData(rule.domain);
-    const availability = getMockAvailabilityStatus(rule.domain);
+    const rdap = await lookupRDAP(rule.domain);
+    const availability = rdap.availabilityStatus;
+    rule.breakdown.registrationHistory = scoreRegistrationHistory(
+      rdap,
+      rule.reasons,
+      rule.weaknesses,
+    );
+
+    // Marketplace/resale detection
+    const marketplace = await getMarketplaceStatus(rule.domain);
 
     const marketScore = await computeMarketScore(marketData);
 
     // Combine scores (blend rule and market)
-    let final = Math.round((rule.ruleScore * 0.55 + marketScore * 0.45));
+    let final = Math.round(rule.ruleScore * 0.6 + marketScore * 0.4);
+    final += rule.breakdown.registrationHistory;
 
     // Important caps and adjustments
     const compactName = rule.name.replace(/\./g, "");
@@ -59,7 +76,6 @@ export async function POST(request: Request) {
 
     // If TLD weak, cap at 65
     const tld = rule.tld;
-    const tldStrength = STRONG_TLDS_MAP[tld] ?? 0;
     if (!STRONG_TLDS_MAP[tld]) {
       final = Math.min(final, 65);
     }
@@ -79,6 +95,26 @@ export async function POST(request: Request) {
       final = Math.min(100, final + 6);
     }
 
+    // RDAP can add modest credibility, but should not override weak market/rule signals
+    if (availability === "Available") {
+      final = Math.min(final, 78);
+    }
+
+    if (availability === "Unknown") {
+      final = Math.min(final, Math.max(rule.ruleScore, 74));
+    }
+
+    if (rdap.expiresAt) {
+      const expiresAt = Date.parse(rdap.expiresAt);
+      if (!Number.isNaN(expiresAt)) {
+        const daysUntilExpiry = (expiresAt - Date.now()) / (1000 * 60 * 60 * 24);
+        if (daysUntilExpiry > 0 && daysUntilExpiry < 45) {
+          rule.weaknesses.push("Registration is close to expiry, which adds uncertainty.");
+          final = Math.max(0, final - 2);
+        }
+      }
+    }
+
     final = Math.max(0, Math.min(100, final));
 
     const response = {
@@ -91,16 +127,26 @@ export async function POST(request: Request) {
       availabilityStatus: availability,
       estimatedValueUsd: marketData.estimatedValueUsd,
       comparableSalesCount: marketData.comparableSalesCount,
+      rdap,
       breakdown: rule.breakdown,
       verdict: getVerdictFromScore(final),
       riskLevel: getRiskFromScore(final),
       reasons: rule.reasons,
       weaknesses: rule.weaknesses,
       marketData,
+      marketplaceStatus: marketplace?.status ?? "unknown",
+      marketplaceName: marketplace?.marketplaceName ?? null,
+      askingPrice: marketplace?.askingPrice ?? null,
+      landingPageDetected: marketplace?.landingPageDetected ?? false,
+      resaleStatus: marketplace?.resaleStatus ?? "unknown",
+      detectedMarketplace: marketplace?.detectedMarketplace ?? null,
+      resaleConfidence: marketplace?.confidence ?? null,
+      marketplaceLinks: marketplace?.marketplaceLinks ?? null,
+      marketplaceNotes: marketplace?.notes ?? null,
     };
 
     return NextResponse.json(response);
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Unable to analyze domain" }, { status: 500 });
   }
 }

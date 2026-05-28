@@ -2,9 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type { MockMarketData } from "@/lib/mockMarketData";
+import type { RdapLookupResult } from "@/lib/rdap";
+import { addToWatchlist } from "@/lib/watchlist";
 
 type ApiResult = {
   domain: string;
+  name: string;
+  tld: string;
   score: number;
   ruleScore: number;
   marketScore: number;
@@ -14,12 +19,37 @@ type ApiResult = {
   riskLevel: "Low" | "Medium" | "High";
   reasons: string[];
   weaknesses: string[];
-  marketData: any;
-  tld: string;
-  name: string;
+  marketData: MockMarketData;
   breakdown: Record<string, number>;
-  comparableSalesCount: number;}
- 
+  comparableSalesCount: number;
+  rdap: RdapLookupResult;
+  marketplaceStatus?: string | null;
+  marketplaceName?: string | null;
+  askingPrice?: number | null;
+  landingPageDetected?: boolean;
+  marketplaceNotes?: string | null;
+  resaleStatus?: "not_listed" | "listed_for_sale" | "possibly_listed" | "needs_verification" | "unknown";
+  detectedMarketplace?: string | null;
+  resaleConfidence?: "high" | "medium" | "low" | null;
+  marketplaceLinks?: Record<string, string> | null;
+};
+
+function formatDate(dateString: string | null) {
+  if (!dateString) {
+    return "Not available";
+  }
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return "Not available";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
 
 function labelForAvailability(availabilityStatus: "Available" | "Taken" | "Unknown") {
   if (availabilityStatus === "Available") {
@@ -42,6 +72,7 @@ const BREAKDOWN_LABELS: Record<string, string> = {
   premiumBrandSignal: "Premium brand signal",
   trendRelevance: "Trend relevance",
   commercialIntent: "Commercial intent",
+  registrationHistory: "Registration history",
   riskPenalties: "Risk penalties",
 };
 
@@ -54,6 +85,7 @@ const BREAKDOWN_MAX: Record<string, number> = {
   premiumBrandSignal: 20,
   trendRelevance: 15,
   commercialIntent: 15,
+  registrationHistory: 10,
   riskPenalties: 20,
 };
 
@@ -73,6 +105,7 @@ export default function AnalyzePage() {
   const [input, setInput] = useState("");
   const [result, setResult] = useState<ApiResult | null>(null);
   const [error, setError] = useState("");
+  const [watchAdded, setWatchAdded] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     try {
@@ -103,7 +136,9 @@ export default function AnalyzePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-8 lg:px-12">
-        <div></div>
+        <header className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+          
+        </header>
 
         <section className="mt-10 grid items-start gap-6 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
           <div className="space-y-6 xl:sticky xl:top-8">
@@ -185,7 +220,7 @@ export default function AnalyzePage() {
                     What comes next
                   </p>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    This model is intentionally lightweight and ready to be upgraded with registrar and ML data later.
+                    RDAP data is live from the backend today. Pricing and market comparables remain lightweight and can be upgraded later.
                   </p>
                 </div>
               </div>
@@ -205,7 +240,7 @@ export default function AnalyzePage() {
                         {result.domain}
                       </h2>
                       <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
-                        A structured snapshot of resale quality, brand readiness, and current mocked availability.
+                        A structured snapshot of resale quality, registration history, and current domain ownership status.
                       </p>
                       <div className="mt-5 flex flex-wrap gap-3">
                         <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-sm font-medium text-slate-200">
@@ -288,6 +323,38 @@ export default function AnalyzePage() {
                   </div>
                   <div className="panel-strong rounded-2xl p-4">
                     <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Registrar
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      {result.rdap.registrar ?? "Not available"}
+                    </dd>
+                  </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Created
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      {formatDate(result.rdap.createdAt)}
+                    </dd>
+                  </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Expires
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      {formatDate(result.rdap.expiresAt)}
+                    </dd>
+                  </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Last updated
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      {formatDate(result.rdap.updatedAt)}
+                    </dd>
+                  </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
                       Estimated value
                     </dt>
                     <dd className="mt-2 text-lg font-semibold text-slate-100">
@@ -302,7 +369,54 @@ export default function AnalyzePage() {
                       {result.marketData?.comparableSalesCount ?? result.comparableSalesCount ?? 0}
                     </dd>
                   </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Resale status
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      {result.resaleStatus ?? "unknown"}
+                    </dd>
+                  </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Detected marketplace
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      {result.detectedMarketplace ?? (result.marketplaceName ?? "—")}
+                    </dd>
+                  </div>
+                  <div className="panel-strong rounded-2xl p-4">
+                    <dt className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+                      Confidence
+                    </dt>
+                    <dd className="mt-2 text-lg font-semibold text-slate-100">
+                      {result.resaleConfidence ?? "low"}
+                    </dd>
+                  </div>
                 </dl>
+
+                <div className="mt-4 rounded-xl border border-white/6 bg-zinc-950/20 px-4 py-3 text-sm text-slate-400">
+                  This resale signal is inferred from publicly available marketplace listings and landing page indicators. It is a heuristic signal and should be verified manually for high-value purchases.
+                </div>
+
+                {result.marketplaceLinks ? (
+                  <div className="mt-4 rounded-xl border border-white/6 px-4 py-3 text-sm text-slate-300">
+                    <p className="mb-2 text-xs text-slate-500">Marketplace verification links</p>
+                    <div className="flex flex-wrap gap-3">
+                      {Object.entries(result.marketplaceLinks).map(([key, url]) => (
+                        <a
+                          key={key}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border border-slate-700 bg-zinc-950 px-3 py-1 text-sm font-medium text-slate-200 hover:border-slate-500"
+                        >
+                          {key}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <section className="panel-strong rounded-2xl p-5">
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
@@ -320,12 +434,7 @@ export default function AnalyzePage() {
                         </span>
                       </div>
                       <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400">
-                        Availability checking is currently mocked for product-flow
-                        purposes and will later be connected to a real domain
-                        registrar or WHOIS API.
-                      </p>
-                      <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
-                        Market data is mocked in this MVP and structured for future integration with NameBio, GoDaddy GoValue, or registrar APIs.
+                        Availability is now based on RDAP lookup data from the backend. Pricing and comparable market data are still lightweight signals in this MVP.
                       </p>
                     </div>
                     {result.availabilityStatus === "Available" ? (
@@ -338,9 +447,28 @@ export default function AnalyzePage() {
                     ) : result.availabilityStatus === "Taken" ? (
                       <button
                         type="button"
+                        onClick={() => {
+                          if (!result) return;
+                          const added = addToWatchlist({
+                            domain: result.domain,
+                            score: result.score,
+                            availabilityStatus: result.availabilityStatus,
+                            resaleStatus: result.resaleStatus ?? null,
+                            estimatedValueUsd: result.estimatedValueUsd ?? null,
+                            registrar: result.rdap?.registrar ?? null,
+                            expiresAt: result.rdap?.expiresAt ?? null,
+                          });
+                          if (added) {
+                            setWatchAdded(result.domain);
+                            setTimeout(() => setWatchAdded(null), 3000);
+                          } else {
+                            setWatchAdded(result.domain);
+                            setTimeout(() => setWatchAdded(null), 1500);
+                          }
+                        }}
                         className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-700 bg-zinc-950 px-5 text-sm font-semibold text-slate-100 hover:border-slate-500 hover:bg-zinc-900"
                       >
-                        Notify when available
+                        {watchAdded === result.domain ? "Added to watchlist" : "Notify when available"}
                       </button>
                     ) : (
                       <button
@@ -349,6 +477,33 @@ export default function AnalyzePage() {
                       >
                         Check again later
                       </button>
+                    )}
+                  </div>
+                </section>
+
+                <section className="panel-strong rounded-2xl p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      Domain status
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Normalized from RDAP status values
+                    </p>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {result.rdap.statuses.length > 0 ? (
+                      result.rdap.statuses.map((status) => (
+                        <span
+                          key={status}
+                          className="rounded-full border border-slate-700 bg-zinc-950 px-3 py-1 text-sm font-medium text-slate-200"
+                        >
+                          {status}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="rounded-full border border-slate-700 bg-zinc-950 px-3 py-1 text-sm font-medium text-slate-400">
+                        No RDAP status flags returned
+                      </span>
                     )}
                   </div>
                 </section>

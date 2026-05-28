@@ -1,4 +1,4 @@
-import { getMockAvailabilityStatus, type DomainAvailabilityStatus } from "./domainAvailability";
+import type { RdapLookupResult } from "./rdap";
 
 export type RuleAnalysis = {
   domain: string;
@@ -12,16 +12,25 @@ export type RuleAnalysis = {
 
 export type ApiAnalysisResponse = {
   domain: string;
-  score: number; // final score
+  name: string;
+  tld: string;
+  score: number;
   ruleScore: number;
   marketScore: number;
-  availabilityStatus: DomainAvailabilityStatus;
+  availabilityStatus: RdapLookupResult["availabilityStatus"];
   estimatedValueUsd: number;
-  verdict: "Low Potential" | "Moderate Potential" | "High Potential" | "Premium Potential";
+  verdict:
+    | "Low Potential"
+    | "Moderate Potential"
+    | "High Potential"
+    | "Premium Potential";
   riskLevel: "Low" | "Medium" | "High";
   reasons: string[];
   weaknesses: string[];
-  marketData: any;
+  marketData: unknown;
+  comparableSalesCount: number;
+  rdap: RdapLookupResult;
+  breakdown: DomainScoreBreakdown;
 };
 
 export type DomainScoreBreakdown = {
@@ -33,6 +42,7 @@ export type DomainScoreBreakdown = {
   premiumBrandSignal: number;
   trendRelevance: number;
   commercialIntent: number;
+  registrationHistory: number;
   riskPenalties: number;
 };
 
@@ -105,19 +115,6 @@ function normalizeInput(input: string) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
-}
-
-function getVerdict(score: number): ApiAnalysisResponse["verdict"] {
-  if (score >= 85) return "Premium Potential";
-  if (score >= 70) return "High Potential";
-  if (score >= 50) return "Moderate Potential";
-  return "Low Potential";
-}
-
-function getRiskLevel(score: number): ApiAnalysisResponse["riskLevel"] {
-  if (score >= 80) return "Low";
-  if (score >= 55) return "Medium";
-  return "High";
 }
 
 function isBrandable(name: string) {
@@ -226,7 +223,7 @@ function scorePronounceability(name: string, reasons: string[], weaknesses: stri
 
   if (consonantClusters === 0) {
     score += 4;
-    reasons.push("No long consonant clusters — easier to say.");
+    reasons.push("No long consonant clusters keep the name easier to say.");
   } else {
     weaknesses.push("Long consonant clusters can make names harder to speak.");
   }
@@ -264,11 +261,15 @@ function scoreMemorability(name: string, reasons: string[], weaknesses: string[]
   return clamp(score, 0, 15);
 }
 
-function scorePremiumBrandSignal(name: string, tld: string, reasons: string[], weaknesses: string[]) {
+function scorePremiumBrandSignal(
+  name: string,
+  tld: string,
+  reasons: string[],
+  weaknesses: string[],
+) {
   const compactName = name.replace(/\./g, "");
   let score = 0;
 
-  // Short names and brandable shapes get a boost
   if (compactName.length <= 6) {
     score += 6;
     reasons.push("Short name contributes to premium brand feel.");
@@ -279,22 +280,18 @@ function scorePremiumBrandSignal(name: string, tld: string, reasons: string[], w
     reasons.push("Name follows common brandable patterns.");
   }
 
-  const uniq = uniqueCharactersRatio(compactName);
-  if (uniq >= 0.72) {
+  if (uniqueCharactersRatio(compactName) >= 0.72) {
     score += 3;
   }
 
-  // Favor names ending with a vowel or common brand-ending letters
   if (/[aeiouy]$/.test(compactName)) {
     score += 2;
   }
 
-  // Strong TLDs slightly amplify premium perception
   if (STRONG_TLDS[tld]) {
     score += 2;
   }
 
-  // Penalize hyphens / numbers (redundant with risk penalties but keep small negative influence)
   if (compactName.includes("-") || /\d/.test(compactName)) {
     weaknesses.push("Hyphens or numbers reduce premium brand perception.");
     score -= 3;
@@ -334,9 +331,7 @@ function scoreCommercialIntent(name: string, reasons: string[], weaknesses: stri
   }
 
   const score = Math.min(15, 7 + commercialHits.length * 4);
-  reasons.push(
-    "Commercial wording suggests clearer business use cases and buyer demand.",
-  );
+  reasons.push("Commercial wording suggests clearer business use cases and buyer demand.");
 
   return score;
 }
@@ -371,6 +366,52 @@ function scoreRiskPenalties(name: string, reasons: string[], weaknesses: string[
   return clamp(penalty, 0, 20);
 }
 
+export function scoreRegistrationHistory(
+  rdap: RdapLookupResult,
+  reasons: string[],
+  weaknesses: string[],
+) {
+  if (rdap.availabilityStatus !== "Taken" || !rdap.createdAt) {
+    if (rdap.availabilityStatus === "Unknown") {
+      weaknesses.push("Registration history could not be verified through RDAP.");
+    }
+    return 0;
+  }
+
+  const created = Date.parse(rdap.createdAt);
+  if (Number.isNaN(created)) {
+    return 0;
+  }
+
+  const ageYears = (Date.now() - created) / (1000 * 60 * 60 * 24 * 365.25);
+  let score = 0;
+
+  if (ageYears >= 15) {
+    score = 10;
+    reasons.push("Long registration history adds credibility to the asset.");
+  } else if (ageYears >= 10) {
+    score = 8;
+    reasons.push("Older registration history can support perceived legitimacy.");
+  } else if (ageYears >= 5) {
+    score = 5;
+    reasons.push("Several years of registration history provide a modest credibility signal.");
+  } else if (ageYears >= 2) {
+    score = 2;
+  }
+
+  if (rdap.statuses.some((status) => status.toLowerCase().includes("pending delete"))) {
+    weaknesses.push("Pending delete status reduces confidence in current registration continuity.");
+    score = Math.max(0, score - 4);
+  }
+
+  if (rdap.statuses.some((status) => status.toLowerCase().includes("redemption"))) {
+    weaknesses.push("Redemption-related status suggests instability in registration history.");
+    score = Math.max(0, score - 3);
+  }
+
+  return clamp(score, 0, 10);
+}
+
 export function analyzeRuleDomain(input: string): RuleAnalysis {
   const normalized = normalizeInput(input);
   const domainPattern = /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,24}$/;
@@ -398,10 +439,10 @@ export function analyzeRuleDomain(input: string): RuleAnalysis {
     premiumBrandSignal: scorePremiumBrandSignal(name, tld, reasons, weaknesses),
     trendRelevance: scoreKeywordTrend(name, reasons, weaknesses),
     commercialIntent: scoreCommercialIntent(name, reasons, weaknesses),
+    registrationHistory: 0,
     riskPenalties: scoreRiskPenalties(name, reasons, weaknesses),
   };
 
-  // Combine weighted components for an overall investment-oriented score
   const weightedTotal =
     breakdown.tldStrength * 1.0 +
     breakdown.length * 0.9 +
