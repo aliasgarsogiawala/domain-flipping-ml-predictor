@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { getWatchlist, removeFromWatchlist, recheckDomain, updateWatchlistItem } from "@/lib/watchlist";
+import { useMutation, useQuery } from "convex/react";
+import {
+  listWatchedDomainsRef,
+  removeWatchedDomainRef,
+  updateWatchedDomainRef,
+} from "@/lib/convex";
+import { recheckDomain } from "@/lib/watchlist";
 import type { WatchItem } from "@/lib/watchlist";
 
 function formatDate(d?: string | null) {
@@ -46,24 +52,24 @@ function Stat({
 }
 
 export default function WatchlistPage() {
-  const [items, setItems] = useState<WatchItem[]>(() => getWatchlist());
+  const watchedDomains = useQuery(listWatchedDomainsRef) as WatchItem[] | undefined;
+  const items = watchedDomains ?? [];
+  const isInitialLoading = watchedDomains === undefined;
+  const removeWatchedDomain = useMutation(removeWatchedDomainRef);
+  const updateWatchedDomain = useMutation(updateWatchedDomainRef);
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  function refreshFromStorage() {
-    setItems(getWatchlist());
-  }
-
   async function handleRemove(domain: string) {
-    removeFromWatchlist(domain);
-    refreshFromStorage();
+    await removeWatchedDomain({ domain });
   }
 
   async function handleRecheck(domain: string) {
     setLoadingMap((m) => ({ ...m, [domain]: true }));
     try {
       const res = await recheckDomain(domain);
-      updateWatchlistItem(domain, {
+      await updateWatchedDomain({
+        domain,
         score: res.score,
         availabilityStatus: res.availabilityStatus,
         resaleStatus: res.resaleStatus ?? res.marketplaceStatus ?? res.availabilityStatus,
@@ -72,7 +78,6 @@ export default function WatchlistPage() {
         expiresAt: res.rdap?.expiresAt ?? null,
         lastCheckedAt: new Date().toISOString(),
       });
-      refreshFromStorage();
     } catch (e) {
       console.error(e);
     } finally {
@@ -82,11 +87,11 @@ export default function WatchlistPage() {
 
   async function handleRecheckAll() {
     setBulkLoading(true);
-    const list = getWatchlist();
-    for (const it of list) {
+    for (const it of items) {
       try {
         const res = await recheckDomain(it.domain);
-        updateWatchlistItem(it.domain, {
+        await updateWatchedDomain({
+          domain: it.domain,
           score: res.score,
           availabilityStatus: res.availabilityStatus,
           resaleStatus: res.resaleStatus ?? res.marketplaceStatus ?? res.availabilityStatus,
@@ -99,7 +104,6 @@ export default function WatchlistPage() {
         console.error(e);
       }
     }
-    refreshFromStorage();
     setBulkLoading(false);
   }
 
@@ -192,7 +196,16 @@ export default function WatchlistPage() {
         </div>
       </section>
 
-      {items.length === 0 ? (
+      {isInitialLoading ? (
+        <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
+          <div className="panel-white rounded-[28px] p-10 text-center">
+            <h2 className="text-2xl font-semibold text-black">Loading watchlist</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-700">
+              Fetching your saved domains from Convex.
+            </p>
+          </div>
+        </section>
+      ) : items.length === 0 ? (
         <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
           <div className="panel-white rounded-[28px] p-10 text-center">
             <h2 className="text-2xl font-semibold text-black">No watched domains yet</h2>

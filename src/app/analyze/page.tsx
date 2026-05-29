@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useMutation } from "convex/react";
 import DomainComparisonChart from "@/components/DomainComparisonChart";
 import ValueProjectionChart from "@/components/ValueProjectionChart";
 import type { InvestmentReport } from "@/lib/investmentReport";
 import type { MockMarketData } from "@/lib/mockMarketData";
+import { addWatchedDomainRef } from "@/lib/convex";
 import type { RdapLookupResult } from "@/lib/rdap";
 import type { ValueProjectionResult } from "@/lib/valueProjection";
-import { addToWatchlist } from "@/lib/watchlist";
 
 type ApiResult = {
   domain: string;
@@ -169,6 +172,9 @@ function SectionCard({
 }
 
 export default function AnalyzePage() {
+  const router = useRouter();
+  const { isSignedIn } = useUser();
+  const addWatchedDomain = useMutation(addWatchedDomainRef);
   const [input, setInput] = useState("");
   const [compareInput, setCompareInput] = useState("");
   const [result, setResult] = useState<ApiResult | null>(null);
@@ -178,6 +184,7 @@ export default function AnalyzePage() {
   const [watchAdded, setWatchAdded] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
+  const [isSavingWatch, setIsSavingWatch] = useState(false);
 
   const handleAnalyze = async () => {
     try {
@@ -240,6 +247,33 @@ export default function AnalyzePage() {
           ? `${compareResult.domain} appears stronger for brand value.`
           : `${compareResult.domain} appears stronger for resale potential.`
       : null;
+
+  const handleWatchDomain = async () => {
+    if (!result) return;
+
+    if (!isSignedIn) {
+      router.push("/sign-in");
+      return;
+    }
+
+    try {
+      setIsSavingWatch(true);
+      await addWatchedDomain({
+        domain: result.domain,
+        score: result.score,
+        availabilityStatus: result.availabilityStatus,
+        resaleStatus: result.resaleStatus ?? null,
+        estimatedValueUsd: result.adjustedEstimatedValueUsd ?? null,
+        registrar: result.rdap?.registrar ?? null,
+        expiresAt: result.rdap?.expiresAt ?? null,
+        lastCheckedAt: new Date().toISOString(),
+      });
+      setWatchAdded(result.domain);
+      setTimeout(() => setWatchAdded(null), 2500);
+    } finally {
+      setIsSavingWatch(false);
+    }
+  };
 
   return (
     <main className="pb-16">
@@ -613,27 +647,14 @@ export default function AnalyzePage() {
                   ) : result.availabilityStatus === "Taken" ? (
                     <button
                       type="button"
-                      onClick={() => {
-                        const added = addToWatchlist({
-                          domain: result.domain,
-                          score: result.score,
-                          availabilityStatus: result.availabilityStatus,
-                          resaleStatus: result.resaleStatus ?? null,
-                          estimatedValueUsd: result.adjustedEstimatedValueUsd ?? null,
-                          registrar: result.rdap?.registrar ?? null,
-                          expiresAt: result.rdap?.expiresAt ?? null,
-                        });
-                        if (added) {
-                          setWatchAdded(result.domain);
-                          setTimeout(() => setWatchAdded(null), 3000);
-                        } else {
-                          setWatchAdded(result.domain);
-                          setTimeout(() => setWatchAdded(null), 1500);
-                        }
-                      }}
+                      onClick={handleWatchDomain}
                       className="btn-ghost inline-flex min-h-[52px] w-full items-center justify-center rounded-full text-sm font-semibold"
                     >
-                      {watchAdded === result.domain ? "Added To Watchlist" : "Notify When Available"}
+                      {isSavingWatch
+                        ? "Saving..."
+                        : watchAdded === result.domain
+                          ? "Added To Watchlist"
+                          : "Notify When Available"}
                     </button>
                   ) : (
                     <button type="button" className="btn-ghost inline-flex min-h-[52px] w-full items-center justify-center rounded-full text-sm font-semibold">
