@@ -301,6 +301,23 @@ Analyzes a domain and returns a comprehensive scoring report.
   pnpm lint
   ```
 
+   ## Authentication (Clerk)
+
+   DomainFlip AI uses [Clerk](https://clerk.com) for authentication. The `/watchlist` route is protected and requires sign-in, while `/` and `/analyze` routes remain public.
+
+   ### Setup
+
+   1. Create a [Clerk account](https://dashboard.clerk.com) and a new application
+   2. Copy your **Publishable Key** and **Secret Key** from the Clerk Dashboard
+   3. Create a `.env.local` file in the project root and add:
+     ```
+     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
+     CLERK_SECRET_KEY=your_secret_key
+     ```
+   4. Run `pnpm dev` and the auth UI will be ready
+
+   Users can sign in/sign up via `/sign-in` and `/sign-up`, and will see a user profile button in the navbar when authenticated.
+
   ## Getting started
 
   ```bash

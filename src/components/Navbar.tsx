@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useUser, UserButton } from "@clerk/nextjs";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const { isLoaded, isSignedIn } = useUser();
 
   useEffect(() => {
     function onScroll() {
@@ -45,12 +47,32 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/watchlist" className="btn-ghost inline-flex rounded-full px-4 py-2 text-sm font-semibold">
-              Watchlist
-            </Link>
-            <Link href="/analyze" className="btn-lime inline-flex rounded-full px-5 py-2 text-sm font-semibold">
-              Analyze Domain
-            </Link>
+            {isLoaded && isSignedIn ? (
+              <>
+                <Link href="/watchlist" className="btn-ghost inline-flex rounded-full px-4 py-2 text-sm font-semibold">
+                  Watchlist
+                </Link>
+                <Link href="/analyze" className="btn-lime inline-flex rounded-full px-5 py-2 text-sm font-semibold">
+                  Analyze Domain
+                </Link>
+                  <UserButton />
+              </>
+            ) : isLoaded ? (
+              <>
+                <Link href="/sign-in" className="btn-ghost inline-flex rounded-full px-4 py-2 text-sm font-semibold">
+                  Sign In
+                </Link>
+                <Link href="/sign-up" className="btn-lime inline-flex rounded-full px-5 py-2 text-sm font-semibold">
+                  Sign Up
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/analyze" className="btn-lime inline-flex rounded-full px-5 py-2 text-sm font-semibold">
+                  Analyze Domain
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
