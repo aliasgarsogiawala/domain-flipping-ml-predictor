@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   listWatchedDomainsRef,
   removeWatchedDomainRef,
@@ -52,6 +52,47 @@ function Stat({
 }
 
 export default function WatchlistPage() {
+  return (
+    <>
+      <AuthLoading>
+        <main className="pb-16">
+          <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
+            <div className="panel-white rounded-[28px] p-10 text-center">
+              <h2 className="text-2xl font-semibold text-black">Authorizing watchlist</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-700">
+                Waiting for Convex to establish your authenticated session.
+              </p>
+            </div>
+          </section>
+        </main>
+      </AuthLoading>
+
+      <Unauthenticated>
+        <main className="pb-16">
+          <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
+            <div className="panel-white rounded-[28px] p-10 text-center">
+              <h2 className="text-2xl font-semibold text-black">Sign in required</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-700">
+                Your watchlist is tied to your account. Sign in again to load your saved domains.
+              </p>
+              <div className="mt-6">
+                <Link href="/sign-in" className="btn-lime inline-flex rounded-full px-6 py-3 text-sm font-semibold">
+                  Go to Sign In
+                </Link>
+              </div>
+            </div>
+          </section>
+        </main>
+      </Unauthenticated>
+
+      <Authenticated>
+        <WatchlistContent />
+      </Authenticated>
+    </>
+  );
+}
+
+function WatchlistContent() {
   const watchedDomains = useQuery(listWatchedDomainsRef) as WatchItem[] | undefined;
   const items = watchedDomains ?? [];
   const isInitialLoading = watchedDomains === undefined;
@@ -112,7 +153,6 @@ export default function WatchlistPage() {
     ? Math.round(items.reduce((sum, item) => sum + (item.score ?? 0), 0) / items.length)
     : 0;
   const takenCount = items.filter((item) => item.availabilityStatus === "Taken").length;
-
   return (
     <main className="pb-16">
       <section className="relative overflow-hidden rounded-[32px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
