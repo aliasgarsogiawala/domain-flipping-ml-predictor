@@ -10,6 +10,7 @@ import { getMockMarketData, type MockMarketData } from "@/lib/mockMarketData";
 import { lookupRDAP } from "@/lib/rdap";
 import { getMarketplaceStatus } from "@/lib/domainMarketplace";
 import { generateInvestmentReport } from "@/lib/investmentReport";
+import { predictDomainValueWithMl } from "@/lib/mlPredictor";
 import { generateValueProjection } from "@/lib/valueProjection";
 import tldMarketAnchors from "@/data/tldMarketAnchors.json";
 
@@ -38,6 +39,7 @@ function getTldAnchor(tld: string): TldMarketAnchor {
 
 function adjustEstimatedValue(params: {
   rawEstimatedValueUsd: number;
+  mlEstimatedValueUsd?: number | null;
   tld: string;
   score: number;
   investmentScore: number;
@@ -52,6 +54,10 @@ function adjustEstimatedValue(params: {
 }) {
   const anchor = getTldAnchor(params.tld);
   const raw = params.rawEstimatedValueUsd;
+  const baseEstimate =
+    params.mlEstimatedValueUsd && params.mlEstimatedValueUsd > 0
+      ? raw * 0.35 + params.mlEstimatedValueUsd * 0.65
+      : raw;
   const qualityBlend =
     params.score * 0.32 +
     params.investmentScore * 0.26 +
@@ -73,8 +79,8 @@ function adjustEstimatedValue(params: {
   const anchorDrivenEstimate =
     anchor.medianVisibleSaleUsd * qualityFactor * anchor.resaleMultiplier;
 
-  // Treat the raw estimated value as one signal, not the dominant answer.
-  let adjusted = raw * 0.35 + anchorDrivenEstimate * 0.65;
+  // Treat external and ML estimates as one pricing signal, not the dominant answer.
+  let adjusted = baseEstimate * 0.35 + anchorDrivenEstimate * 0.65;
 
   const liquidityCap =
     anchor.medianVisibleSaleUsd * (1.2 + anchor.liquidityScore / 65);
@@ -143,6 +149,7 @@ export async function POST(request: Request) {
     // Market data & RDAP lookup
     const marketData = getMockMarketData(rule.domain);
     const rdap = await lookupRDAP(rule.domain);
+    const mlPrediction = await predictDomainValueWithMl(rule.domain);
     const availability = rdap.availabilityStatus;
     rule.breakdown.registrationHistory = scoreRegistrationHistory(
       rdap,
@@ -230,6 +237,7 @@ export async function POST(request: Request) {
 
     const valuation = adjustEstimatedValue({
       rawEstimatedValueUsd: marketData.estimatedValueUsd,
+      mlEstimatedValueUsd: mlPrediction?.predictedValueUsd ?? null,
       tld: rule.tld,
       score: final,
       investmentScore,
@@ -286,6 +294,9 @@ export async function POST(request: Request) {
       marketScore,
       availabilityStatus: availability,
       estimatedValueUsd: marketData.estimatedValueUsd,
+      mlPredictedValueUsd: mlPrediction?.predictedValueUsd ?? null,
+      mlPredictionConfidence: mlPrediction?.confidence ?? null,
+      mlExtractedFeatures: mlPrediction?.extractedFeatures ?? null,
       tldMarketAnchorUsd: valuation.tldMarketAnchorUsd,
       adjustedEstimatedValueUsd: valuation.adjustedEstimatedValueUsd,
       liquidityScore: valuation.liquidityScore,
