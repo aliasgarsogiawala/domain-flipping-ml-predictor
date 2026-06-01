@@ -37,6 +37,9 @@ export default function Navbar() {
               <Link href="/#features" className="text-sm font-medium text-black">
                 Products
               </Link>
+              <Link href="/market" className="text-sm font-medium text-black">
+                Market
+              </Link>
               <Link href="/#intel-workspace" className="text-sm font-medium text-black">
                 Intelligence
               </Link>
