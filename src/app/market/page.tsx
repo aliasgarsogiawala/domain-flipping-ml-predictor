@@ -4,6 +4,8 @@ import SalesTable from "@/components/market/SalesTable";
 import TldSalesChart from "@/components/market/TldSalesChart";
 import { loadMarketData } from "@/lib/marketData";
 
+export const revalidate = 3600;
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",

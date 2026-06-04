@@ -40,6 +40,9 @@ export default function Navbar() {
               <Link href="/market" className="text-sm font-medium text-black">
                 Market
               </Link>
+              <Link href="/assistant" className="text-sm font-medium text-black">
+                Assistant
+              </Link>
               <Link href="/#intel-workspace" className="text-sm font-medium text-black">
                 Intelligence
               </Link>
@@ -55,6 +58,9 @@ export default function Navbar() {
                 <Link href="/watchlist" className="btn-ghost inline-flex rounded-full px-4 py-2 text-sm font-semibold">
                   Watchlist
                 </Link>
+                <Link href="/assistant" className="btn-ghost inline-flex rounded-full px-4 py-2 text-sm font-semibold">
+                  AI Assistant
+                </Link>
                 <Link href="/analyze" className="btn-lime inline-flex rounded-full px-5 py-2 text-sm font-semibold">
                   Analyze Domain
                 </Link>
@@ -62,6 +68,9 @@ export default function Navbar() {
               </>
             ) : isLoaded ? (
               <>
+                <Link href="/assistant" className="btn-ghost inline-flex rounded-full px-4 py-2 text-sm font-semibold">
+                  Assistant
+                </Link>
                 <Link href="/sign-in" className="btn-ghost inline-flex rounded-full px-4 py-2 text-sm font-semibold">
                   Sign In
                 </Link>

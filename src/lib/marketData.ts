@@ -53,6 +53,7 @@ export type MarketDataResult = {
 
 const ROOT = process.cwd();
 const MASTER_DATASET_PATH = path.join(ROOT, "data", "processed", "domain_sales_master.csv");
+const SNAPSHOT_DATASET_PATH = path.join(ROOT, "data", "processed", "market_snapshot.json");
 const RAW_DATA_DIR = path.join(ROOT, "data", "raw");
 let marketDataPromise: Promise<MarketDataResult> | null = null;
 
@@ -240,6 +241,22 @@ async function loadMasterRecords() {
     .filter((record): record is MarketSaleRecord => Boolean(record));
 }
 
+async function loadSnapshotData() {
+  const content = await fs.readFile(SNAPSHOT_DATASET_PATH, "utf8");
+  const parsed = JSON.parse(content) as MarketDataResult;
+
+  return {
+    latestReportedSales: parsed.latestReportedSales ?? [],
+    summary: parsed.summary,
+    tldPerformance: parsed.tldPerformance ?? [],
+    categoryBreakdown: parsed.categoryBreakdown ?? [],
+    priceDistribution: parsed.priceDistribution ?? [],
+    availableTlds: parsed.availableTlds ?? [],
+    availableCategories: parsed.availableCategories ?? [],
+    dataSource: "processed" as const,
+  };
+}
+
 function buildSummary(records: MarketSaleRecord[]): MarketSummary {
   const prices = records.map((record) => record.salePriceUsd);
   const tldCounts = new Map<string, number>();
@@ -326,7 +343,16 @@ export async function loadMarketData(): Promise<MarketDataResult> {
   }
 
   marketDataPromise = (async () => {
-  const hasMasterDataset = await fs
+    const hasSnapshotDataset = await fs
+      .access(SNAPSHOT_DATASET_PATH)
+      .then(() => true)
+      .catch(() => false);
+
+    if (hasSnapshotDataset) {
+      return loadSnapshotData();
+    }
+
+    const hasMasterDataset = await fs
     .access(MASTER_DATASET_PATH)
     .then(() => true)
     .catch(() => false);

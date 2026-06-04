@@ -11,6 +11,10 @@ import { lookupRDAP } from "@/lib/rdap";
 import { getMarketplaceStatus } from "@/lib/domainMarketplace";
 import { generateInvestmentReport } from "@/lib/investmentReport";
 import { predictDomainValueWithMl } from "@/lib/mlPredictor";
+import {
+  applyAdvisoryValueAdjustment,
+  generateOpenAIDomainInsights,
+} from "@/lib/openaiDomainAdvisor";
 import { generateValueProjection } from "@/lib/valueProjection";
 import tldMarketAnchors from "@/data/tldMarketAnchors.json";
 
@@ -251,6 +255,34 @@ export async function POST(request: Request) {
       domainLength: rule.name.replace(/\./g, "").length,
     });
 
+    const openaiInsights = await generateOpenAIDomainInsights({
+      domain: rule.domain,
+      name: rule.name,
+      tld: rule.tld,
+      score: final,
+      ruleScore: rule.ruleScore,
+      marketScore,
+      investmentScore,
+      brandPrestigeScore,
+      riskLevel: getRiskFromScore(final),
+      availabilityStatus: availability,
+      resaleStatus: marketplace?.resaleStatus ?? "unknown",
+      adjustedEstimatedValueUsd: valuation.adjustedEstimatedValueUsd,
+      tldMarketAnchorUsd: valuation.tldMarketAnchorUsd,
+      liquidityScore: valuation.liquidityScore,
+      registrar: rdap.registrar,
+      createdAt: rdap.createdAt,
+      expiresAt: rdap.expiresAt,
+      reasons: rule.reasons,
+      weaknesses: rule.weaknesses,
+      comparableSalesCount: marketData.comparableSalesCount,
+    });
+
+    const aiAdjustedEstimatedValueUsd = applyAdvisoryValueAdjustment(
+      valuation.adjustedEstimatedValueUsd,
+      openaiInsights,
+    );
+
     const investmentReport = generateInvestmentReport({
       domain: rule.domain,
       name: rule.name,
@@ -260,7 +292,7 @@ export async function POST(request: Request) {
       brandPrestigeScore,
       availabilityStatus: availability,
       resaleStatus: marketplace?.resaleStatus ?? "unknown",
-      estimatedValueUsd: valuation.adjustedEstimatedValueUsd,
+      estimatedValueUsd: aiAdjustedEstimatedValueUsd,
       registrar: rdap.registrar,
       createdAt: rdap.createdAt,
       expiresAt: rdap.expiresAt,
@@ -271,7 +303,7 @@ export async function POST(request: Request) {
     });
 
     const valueProjection = generateValueProjection({
-      estimatedValueUsd: valuation.adjustedEstimatedValueUsd,
+      estimatedValueUsd: aiAdjustedEstimatedValueUsd,
       score: final,
       investmentScore,
       brandPrestigeScore,
@@ -298,7 +330,8 @@ export async function POST(request: Request) {
       mlPredictionConfidence: mlPrediction?.confidence ?? null,
       mlExtractedFeatures: mlPrediction?.extractedFeatures ?? null,
       tldMarketAnchorUsd: valuation.tldMarketAnchorUsd,
-      adjustedEstimatedValueUsd: valuation.adjustedEstimatedValueUsd,
+      modelAdjustedEstimatedValueUsd: valuation.adjustedEstimatedValueUsd,
+      adjustedEstimatedValueUsd: aiAdjustedEstimatedValueUsd,
       liquidityScore: valuation.liquidityScore,
       comparableSalesCount: marketData.comparableSalesCount,
       rdap,
@@ -317,6 +350,7 @@ export async function POST(request: Request) {
       resaleConfidence: marketplace?.confidence ?? null,
       marketplaceLinks: marketplace?.marketplaceLinks ?? null,
       marketplaceNotes: marketplace?.notes ?? null,
+      openaiInsights,
       investmentReport,
       valueProjection,
     };

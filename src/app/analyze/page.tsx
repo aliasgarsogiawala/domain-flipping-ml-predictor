@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import DomainComparisonChart from "@/components/DomainComparisonChart";
@@ -10,6 +10,7 @@ import ValueProjectionChart from "@/components/ValueProjectionChart";
 import type { InvestmentReport } from "@/lib/investmentReport";
 import type { MockMarketData } from "@/lib/mockMarketData";
 import { addWatchedDomainRef } from "@/lib/convex";
+import type { OpenAIDomainInsights } from "@/lib/openaiDomainAdvisor";
 import type { RdapLookupResult } from "@/lib/rdap";
 import type { ValueProjectionResult } from "@/lib/valueProjection";
 
@@ -24,6 +25,7 @@ type ApiResult = {
   marketScore: number;
   availabilityStatus: "Available" | "Taken" | "Unknown";
   estimatedValueUsd: number;
+  modelAdjustedEstimatedValueUsd: number;
   tldMarketAnchorUsd: number;
   adjustedEstimatedValueUsd: number;
   liquidityScore: number;
@@ -44,6 +46,7 @@ type ApiResult = {
   detectedMarketplace?: string | null;
   resaleConfidence?: "high" | "medium" | "low" | null;
   marketplaceLinks?: Record<string, string> | null;
+  openaiInsights: OpenAIDomainInsights;
   investmentReport: InvestmentReport;
   valueProjection: ValueProjectionResult;
 };
@@ -117,6 +120,12 @@ function badgeForRisk(value: ApiResult["riskLevel"]) {
   return "bg-[#ffd3d3] text-black border-black";
 }
 
+function badgeForAiConfidence(value: OpenAIDomainInsights["confidence"]) {
+  if (value === "High") return "bg-[var(--lime)] text-black border-black";
+  if (value === "Medium") return "bg-[var(--purple-bar)] text-black border-black";
+  return "bg-white text-black border-black";
+}
+
 function StatCard({
   label,
   value,
@@ -173,9 +182,12 @@ function SectionCard({
 
 export default function AnalyzePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const seededDomain = searchParams.get("domain")?.trim() ?? "";
+  const lastAutoAnalyzedRef = useRef<string | null>(null);
   const { isSignedIn } = useUser();
   const addWatchedDomain = useMutation(addWatchedDomainRef);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(seededDomain);
   const [compareInput, setCompareInput] = useState("");
   const [result, setResult] = useState<ApiResult | null>(null);
   const [compareResult, setCompareResult] = useState<ApiResult | null>(null);
@@ -186,13 +198,13 @@ export default function AnalyzePage() {
   const [isCompareLoading, setIsCompareLoading] = useState(false);
   const [isSavingWatch, setIsSavingWatch] = useState(false);
 
-  const handleAnalyze = async () => {
+  const runAnalyze = async (domainValue: string) => {
     try {
       setIsLoading(true);
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: input }),
+        body: JSON.stringify({ domain: domainValue }),
       });
       if (!res.ok) {
         const payload = await res.json();
@@ -209,6 +221,10 @@ export default function AnalyzePage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAnalyze = async () => {
+    await runAnalyze(input);
   };
 
   const handleCompare = async () => {
@@ -274,6 +290,12 @@ export default function AnalyzePage() {
       setIsSavingWatch(false);
     }
   };
+
+  useEffect(() => {
+    if (!seededDomain || seededDomain === lastAutoAnalyzedRef.current) return;
+    lastAutoAnalyzedRef.current = seededDomain;
+    void runAnalyze(seededDomain);
+  }, [seededDomain]);
 
   return (
     <main className="pb-16">
@@ -469,6 +491,101 @@ export default function AnalyzePage() {
               </SectionCard>
 
               <SectionCard
+                eyebrow="AI Advisory"
+                title="OpenAI-assisted market summary"
+                aside={
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForAiConfidence(result.openaiInsights.confidence)}`}>
+                      AI confidence: {result.openaiInsights.confidence}
+                    </span>
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRecommendation(result.openaiInsights.suggestedRecommendation)}`}>
+                      AI suggestion: {result.openaiInsights.suggestedRecommendation}
+                    </span>
+                  </div>
+                }
+              >
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">AI Summary</p>
+                    <p className="mt-4 text-sm leading-7 text-slate-700">{result.openaiInsights.summary}</p>
+                  </div>
+                  <div className="grid gap-4">
+                    <div className="panel-white-soft rounded-[22px] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Valuation Rationale</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-700">{result.openaiInsights.valuationRationale}</p>
+                    </div>
+                    <div className="panel-white-soft rounded-[22px] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Decision Guidance</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-700">{result.openaiInsights.decisionGuidance}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Acquisition Suggestions</p>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                      {result.openaiInsights.acquisitionSuggestions.map((item) => (
+                        <li key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Risk Flags</p>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                      {result.openaiInsights.riskFlags.map((item) => (
+                        <li key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Buyer Angles</p>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                      {result.openaiInsights.buyerAngles.map((item) => (
+                        <li key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Similar Domains</p>
+                      <p className="data-mono text-xs text-slate-500">
+                        AI value adj: {result.openaiInsights.valueAdjustmentPercent > 0 ? "+" : ""}
+                        {result.openaiInsights.valueAdjustmentPercent}%
+                      </p>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {result.openaiInsights.similarDomains.map((domain) => (
+                        <button
+                          key={domain}
+                          type="button"
+                          onClick={() => {
+                            setInput(domain);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className="data-mono rounded-full border border-black bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-[var(--lime)]"
+                        >
+                          {domain}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-slate-700">
+                      Similar domains are idea prompts for further screening, not availability guarantees.
+                    </p>
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard
                 eyebrow="Investment Report"
                 title="Deterministic recommendation"
                 aside={
@@ -608,12 +725,13 @@ export default function AnalyzePage() {
               <SectionCard eyebrow="Valuation Layer" title="Benchmark normalized estimates">
                 <div className="grid gap-3">
                   <DetailRow label="Raw appraisal signal" value={formatCurrency(result.estimatedValueUsd)} mono />
-                  <DetailRow label="Adjusted estimated value" value={formatCurrency(result.adjustedEstimatedValueUsd)} mono />
+                  <DetailRow label="Model-adjusted value" value={formatCurrency(result.modelAdjustedEstimatedValueUsd)} mono />
+                  <DetailRow label="AI-adjusted value" value={formatCurrency(result.adjustedEstimatedValueUsd)} mono />
                   <DetailRow label="TLD market benchmark" value={formatCurrency(result.tldMarketAnchorUsd)} mono />
                   <DetailRow label="Liquidity score" value={`${result.liquidityScore}`} mono />
                 </div>
                 <p className="mt-4 text-sm leading-7 text-slate-700">
-                  Based on recent historical sales references. External appraisal inputs remain a signal, not the final value.
+                  Based on recent historical sales references. OpenAI can apply a modest advisory adjustment, but the deterministic pricing layer remains the primary anchor.
                 </p>
               </SectionCard>
 

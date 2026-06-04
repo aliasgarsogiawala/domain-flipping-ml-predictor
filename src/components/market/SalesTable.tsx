@@ -117,8 +117,11 @@ export default function SalesTable({
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(0, 150).map((record) => (
-              <tr key={`${record.domain}-${record.salePriceUsd}-${record.sourceFile}`} className="border-b border-black/10 text-sm last:border-b-0">
+            {filtered.slice(0, 150).map((record, index) => (
+              <tr
+                key={`${record.domain}-${record.salePriceUsd}-${record.saleDate ?? "unknown"}-${record.venue}-${record.sourceFile}-${index}`}
+                className="border-b border-black/10 text-sm last:border-b-0"
+              >
                 <td className="data-mono px-4 py-4 font-medium text-black">{record.domain}</td>
                 <td className="data-mono px-4 py-4 text-black">{formatCurrency(record.salePriceUsd)}</td>
                 <td className="data-mono px-4 py-4 text-slate-700">{record.tld}</td>
