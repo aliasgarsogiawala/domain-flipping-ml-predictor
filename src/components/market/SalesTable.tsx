@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import type { MarketSaleRecord } from "@/lib/marketData";
 
+const STORAGE_KEY = "domainflip-market-screens-v1";
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -52,6 +54,15 @@ export default function SalesTable({
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedPriceFilter, setSelectedPriceFilter] = useState("All prices");
   const [sortBy, setSortBy] = useState("latest");
+  const [savedScreens, setSavedScreens] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const activePriceRange =
     PRICE_FILTERS.find((filter) => filter.label === selectedPriceFilter) ?? PRICE_FILTERS[0];
@@ -101,6 +112,40 @@ export default function SalesTable({
     setSelectedCategory("all");
     setSelectedPriceFilter("All prices");
     setSortBy("latest");
+  };
+
+  const currentScreen = JSON.stringify({
+    search,
+    selectedTld,
+    selectedCategory,
+    selectedPriceFilter,
+    sortBy,
+  });
+
+  const saveCurrentScreen = () => {
+    if (typeof window === "undefined") return;
+    const next = [...new Set([currentScreen, ...savedScreens])].slice(0, 6);
+    setSavedScreens(next);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const loadScreen = (rawScreen: string) => {
+    try {
+      const screen = JSON.parse(rawScreen) as {
+        search: string;
+        selectedTld: string;
+        selectedCategory: string;
+        selectedPriceFilter: string;
+        sortBy: string;
+      };
+      setSearch(screen.search);
+      setSelectedTld(screen.selectedTld);
+      setSelectedCategory(screen.selectedCategory);
+      setSelectedPriceFilter(screen.selectedPriceFilter);
+      setSortBy(screen.sortBy);
+    } catch {
+      // Ignore malformed saved screens.
+    }
   };
 
   return (
@@ -202,6 +247,42 @@ export default function SalesTable({
         >
           Reset filters
         </button>
+        <button
+          type="button"
+          onClick={saveCurrentScreen}
+          className="rounded-full border border-black bg-[var(--lime)] px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-black"
+        >
+          Save screen
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {savedScreens.length ? (
+          savedScreens.map((screen, index) => {
+            const parsed = JSON.parse(screen) as {
+              selectedTld: string;
+              selectedCategory: string;
+              selectedPriceFilter: string;
+            };
+
+            return (
+              <button
+                key={`${screen}-${index}`}
+                type="button"
+                onClick={() => loadScreen(screen)}
+                className="rounded-full border border-black bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-700"
+              >
+                {`${parsed.selectedTld === "all" ? "All TLDs" : parsed.selectedTld} · ${
+                  parsed.selectedCategory === "all" ? "All categories" : parsed.selectedCategory
+                } · ${parsed.selectedPriceFilter}`}
+              </button>
+            );
+          })
+        ) : (
+          <span className="rounded-full border border-black bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-700">
+            No saved market screens yet
+          </span>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-[24px] border border-black bg-white">

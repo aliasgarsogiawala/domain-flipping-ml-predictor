@@ -47,6 +47,9 @@ export const addWatchedDomain = mutationGeneric({
     registrar: v.optional(v.string()),
     expiresAt: v.optional(v.string()),
     lastCheckedAt: v.optional(v.string()),
+    targetBuyPriceUsd: v.optional(v.number()),
+    maxBudgetUsd: v.optional(v.number()),
+    negotiationStance: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -65,6 +68,9 @@ export const addWatchedDomain = mutationGeneric({
         registrar: args.registrar,
         expiresAt: args.expiresAt,
         lastCheckedAt: args.lastCheckedAt ?? new Date().toISOString(),
+        targetBuyPriceUsd: args.targetBuyPriceUsd,
+        maxBudgetUsd: args.maxBudgetUsd,
+        negotiationStance: args.negotiationStance,
         updatedAt: now,
       });
 
@@ -81,6 +87,9 @@ export const addWatchedDomain = mutationGeneric({
       registrar: args.registrar,
       expiresAt: args.expiresAt,
       lastCheckedAt: args.lastCheckedAt ?? new Date().toISOString(),
+      targetBuyPriceUsd: args.targetBuyPriceUsd,
+      maxBudgetUsd: args.maxBudgetUsd,
+      negotiationStance: args.negotiationStance,
       createdAt: now,
       updatedAt: now,
     });
@@ -118,6 +127,9 @@ export const updateWatchedDomain = mutationGeneric({
     registrar: v.optional(v.string()),
     expiresAt: v.optional(v.string()),
     lastCheckedAt: v.optional(v.string()),
+    targetBuyPriceUsd: v.optional(v.number()),
+    maxBudgetUsd: v.optional(v.number()),
+    negotiationStance: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -137,6 +149,9 @@ export const updateWatchedDomain = mutationGeneric({
       registrar: args.registrar,
       expiresAt: args.expiresAt,
       lastCheckedAt: args.lastCheckedAt,
+      targetBuyPriceUsd: args.targetBuyPriceUsd,
+      maxBudgetUsd: args.maxBudgetUsd,
+      negotiationStance: args.negotiationStance,
       updatedAt: Date.now(),
     });
 

@@ -9,6 +9,7 @@ import { getMockMarketData, type MockMarketData } from "@/lib/mockMarketData";
 import { lookupRDAP } from "@/lib/rdap";
 import { getMarketplaceStatus } from "@/lib/domainMarketplace";
 import { generateInvestmentReport } from "@/lib/investmentReport";
+import { findComparableSales } from "@/lib/marketData";
 import { predictDomainValueWithMl } from "@/lib/mlPredictor";
 import {
   applyAdvisoryValueAdjustment,
@@ -394,6 +395,7 @@ export async function POST(request: Request) {
 
     // Market data & RDAP lookup
     const marketData = getMockMarketData(rule.domain);
+    const comparableSales = await findComparableSales(rule.domain, 5);
     const rdap = await lookupRDAP(rule.domain);
     const mlPrediction = await predictDomainValueWithMl(rule.domain);
     const availability = rdap.availabilityStatus;
@@ -638,6 +640,7 @@ export async function POST(request: Request) {
       reasons: rule.reasons,
       weaknesses: rule.weaknesses,
       marketData,
+      comparableSales,
       marketplaceStatus: marketplace?.status ?? "unknown",
       marketplaceName: marketplace?.marketplaceName ?? null,
       askingPrice: marketplace?.askingPrice ?? null,

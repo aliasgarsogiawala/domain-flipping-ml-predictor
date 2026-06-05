@@ -9,6 +9,7 @@ import DomainComparisonChart from "@/components/DomainComparisonChart";
 import ValueProjectionChart from "@/components/ValueProjectionChart";
 import { formatInrFromUsd } from "@/lib/currency";
 import type { InvestmentReport } from "@/lib/investmentReport";
+import type { ComparableSaleMatch } from "@/lib/marketData";
 import type { MockMarketData } from "@/lib/mockMarketData";
 import { addWatchedDomainRef } from "@/lib/convex";
 import type { OpenAIDomainInsights } from "@/lib/openaiDomainAdvisor";
@@ -38,6 +39,7 @@ type ApiResult = {
   breakdown: Record<string, number>;
   comparableSalesCount: number;
   rdap: RdapLookupResult;
+  comparableSales: ComparableSaleMatch[];
   marketplaceStatus?: string | null;
   marketplaceName?: string | null;
   askingPrice?: number | null;
@@ -118,6 +120,12 @@ function badgeForAiConfidence(value: OpenAIDomainInsights["confidence"]) {
   return "bg-white text-black border-black";
 }
 
+function riskRank(value: ApiResult["riskLevel"]) {
+  if (value === "Low") return 0;
+  if (value === "Medium") return 1;
+  return 2;
+}
+
 function StatCard({
   label,
   value,
@@ -183,12 +191,19 @@ export default function AnalyzePage() {
   const [compareInput, setCompareInput] = useState("");
   const [result, setResult] = useState<ApiResult | null>(null);
   const [compareResult, setCompareResult] = useState<ApiResult | null>(null);
+  const [battleInput, setBattleInput] = useState("");
+  const [battleResults, setBattleResults] = useState<ApiResult[]>([]);
   const [error, setError] = useState("");
   const [compareError, setCompareError] = useState("");
+  const [battleError, setBattleError] = useState("");
   const [watchAdded, setWatchAdded] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
+  const [isBattleLoading, setIsBattleLoading] = useState(false);
   const [isSavingWatch, setIsSavingWatch] = useState(false);
+  const [targetBuyPrice, setTargetBuyPrice] = useState("");
+  const [maxBudget, setMaxBudget] = useState("");
+  const [negotiationStance, setNegotiationStance] = useState("Disciplined");
 
   const runAnalyze = async (domainValue: string) => {
     try {
@@ -205,7 +220,9 @@ export default function AnalyzePage() {
       const json: ApiResult = await res.json();
       setResult(json);
       setCompareResult(null);
+      setBattleResults([]);
       setCompareError("");
+      setBattleError("");
       setError("");
     } catch (caughtError) {
       setResult(null);
@@ -247,6 +264,45 @@ export default function AnalyzePage() {
     }
   };
 
+  const handleBattle = async () => {
+    const domains = [...new Set(
+      battleInput
+        .split(/[\n,\s]+/)
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean),
+    )].slice(0, 5);
+
+    if (domains.length < 3) {
+      setBattleError("Enter 3 to 5 domains for battle mode.");
+      return;
+    }
+
+    try {
+      setIsBattleLoading(true);
+      setBattleError("");
+      const responses = await Promise.all(
+        domains.map(async (domain) => {
+          const res = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domain }),
+          });
+          if (!res.ok) {
+            const payload = await res.json();
+            throw new Error(payload?.error || `Unable to analyze ${domain}`);
+          }
+          return (await res.json()) as ApiResult;
+        }),
+      );
+      setBattleResults(responses);
+    } catch (caughtError) {
+      setBattleResults([]);
+      setBattleError(caughtError instanceof Error ? caughtError.message : "Unable to run battle mode.");
+    } finally {
+      setIsBattleLoading(false);
+    }
+  };
+
   const comparisonVerdict =
     result && compareResult
       ? result.score > compareResult.score && result.investmentScore >= compareResult.investmentScore
@@ -255,6 +311,24 @@ export default function AnalyzePage() {
           ? `${compareResult.domain} appears stronger for brand value.`
           : `${compareResult.domain} appears stronger for resale potential.`
       : null;
+
+  const battleLeaders =
+    battleResults.length >= 3
+      ? {
+          bestLiquidity: [...battleResults].sort((left, right) => right.liquidityScore - left.liquidityScore)[0],
+          bestBrand: [...battleResults].sort((left, right) => right.brandPrestigeScore - left.brandPrestigeScore)[0],
+          bestAcquisition: [...battleResults].sort((left, right) => riskRank(left.riskLevel) - riskRank(right.riskLevel) || left.adjustedEstimatedValueUsd - right.adjustedEstimatedValueUsd)[0],
+        }
+      : null;
+
+  const numericTargetBuyPrice = targetBuyPrice ? Number(targetBuyPrice) : null;
+  const numericMaxBudget = maxBudget ? Number(maxBudget) : null;
+  const acquisitionReadiness =
+    result && numericTargetBuyPrice
+      ? numericTargetBuyPrice <= result.adjustedEstimatedValueUsd
+        ? "Target price is disciplined relative to the current adjusted estimate."
+        : "Target price is above the current adjusted estimate, so negotiation discipline matters."
+      : "Set a target price and budget to frame the acquisition stance.";
 
   const handleWatchDomain = async () => {
     if (!result) return;
@@ -275,6 +349,9 @@ export default function AnalyzePage() {
         registrar: result.rdap?.registrar ?? null,
         expiresAt: result.rdap?.expiresAt ?? null,
         lastCheckedAt: new Date().toISOString(),
+        targetBuyPriceUsd: targetBuyPrice ? Number(targetBuyPrice) : undefined,
+        maxBudgetUsd: maxBudget ? Number(maxBudget) : undefined,
+        negotiationStance,
       });
       setWatchAdded(result.domain);
       setTimeout(() => setWatchAdded(null), 2500);
@@ -372,6 +449,35 @@ export default function AnalyzePage() {
                 {compareError ? (
                   <div className="rounded-2xl border border-[#fca5a5]/40 bg-[#2b1111] px-4 py-3 text-sm text-[#fecaca]">
                     {compareError}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-white/10 bg-[#111318] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+              <div className="border-b border-white/10 pb-4">
+                <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Domain Battle</p>
+                <h2 className="mt-2 text-xl font-semibold text-white">Compare 3-5 domains at once</h2>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <textarea
+                  value={battleInput}
+                  onChange={(event) => setBattleInput(event.target.value)}
+                  placeholder={"alphaagent.com\nsignalstack.ai\npaymint.io"}
+                  className="data-mono min-h-[120px] w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-base text-slate-100 outline-none placeholder:text-slate-500 focus:border-[var(--lime)] focus:ring-2 focus:ring-[var(--lime)]/20"
+                />
+                <button
+                  type="button"
+                  onClick={handleBattle}
+                  disabled={isBattleLoading}
+                  className="btn-ghost inline-flex min-h-[52px] w-full items-center justify-center rounded-full text-sm font-semibold disabled:opacity-60"
+                >
+                  {isBattleLoading ? "Running battle..." : "Run Domain Battle"}
+                </button>
+                {battleError ? (
+                  <div className="rounded-2xl border border-[#fca5a5]/40 bg-[#2b1111] px-4 py-3 text-sm text-[#fecaca]">
+                    {battleError}
                   </div>
                 ) : null}
               </div>
@@ -698,6 +804,58 @@ export default function AnalyzePage() {
                   ) : null}
                 </SectionCard>
               ) : null}
+
+              {battleResults.length >= 3 ? (
+                <SectionCard eyebrow="Battle Mode" title="3-5 domain tournament">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="panel-white-soft rounded-[22px] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Liquidity leader</p>
+                      <p className="data-mono mt-3 text-lg font-semibold text-black">{battleLeaders?.bestLiquidity.domain}</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-700">Highest liquidity score in the battle set.</p>
+                    </div>
+                    <div className="panel-white-soft rounded-[22px] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Brand leader</p>
+                      <p className="data-mono mt-3 text-lg font-semibold text-black">{battleLeaders?.bestBrand.domain}</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-700">Strongest brand prestige among the compared names.</p>
+                    </div>
+                    <div className="panel-white-soft rounded-[22px] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Acquisition leader</p>
+                      <p className="data-mono mt-3 text-lg font-semibold text-black">{battleLeaders?.bestAcquisition.domain}</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-700">Best risk-to-value profile for disciplined buying.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 overflow-x-auto rounded-[24px] border border-black bg-white">
+                    <table className="min-w-full text-left">
+                      <thead>
+                        <tr className="border-b border-black text-xs uppercase tracking-[0.18em] text-slate-600">
+                          <th className="px-4 py-3 font-medium">Domain</th>
+                          <th className="px-4 py-3 font-medium">Score</th>
+                          <th className="px-4 py-3 font-medium">Brand</th>
+                          <th className="px-4 py-3 font-medium">Liquidity</th>
+                          <th className="px-4 py-3 font-medium">Value</th>
+                          <th className="px-4 py-3 font-medium">Risk</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {battleResults
+                          .slice()
+                          .sort((left, right) => right.score - left.score)
+                          .map((item) => (
+                            <tr key={item.domain} className="border-b border-black/10 text-sm last:border-b-0">
+                              <td className="data-mono px-4 py-4 font-medium text-black">{item.domain}</td>
+                              <td className="data-mono px-4 py-4 text-slate-700">{item.score}</td>
+                              <td className="data-mono px-4 py-4 text-slate-700">{item.brandPrestigeScore}</td>
+                              <td className="data-mono px-4 py-4 text-slate-700">{item.liquidityScore}</td>
+                              <td className="data-mono px-4 py-4 text-slate-700">{formatInrFromUsd(item.adjustedEstimatedValueUsd)}</td>
+                              <td className="px-4 py-4 text-slate-700">{item.riskLevel}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </SectionCard>
+              ) : null}
             </div>
 
             <div className="space-y-6">
@@ -727,7 +885,83 @@ export default function AnalyzePage() {
                 </p>
               </SectionCard>
 
-              <SectionCard eyebrow="Comparable Sales" title="Market posture">
+              <SectionCard eyebrow="Comparable Sales" title="Nearest observed sale references">
+                {result.comparableSales.length ? (
+                  <div className="space-y-3">
+                    {result.comparableSales.map((sale) => (
+                      <div key={`${sale.domain}-${sale.salePriceUsd}-${sale.saleDate ?? "na"}`} className="rounded-[22px] border border-black bg-white px-4 py-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="data-mono text-lg font-semibold text-black">{sale.domain}</p>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {sale.tld} · {sale.category} · {sale.charLength ?? "-"} chars · {sale.venue}
+                            </p>
+                            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">
+                              {sale.matchReasons.join(" • ")}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="data-mono text-lg font-semibold text-black">{formatInrFromUsd(sale.salePriceUsd)}</p>
+                            <p className="mt-1 text-sm text-slate-600">{formatDate(sale.saleDate)}</p>
+                            <p className="mt-1 text-xs text-slate-500">Similarity {sale.similarityScore}/100</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[22px] border border-black bg-white px-4 py-4 text-sm leading-7 text-slate-700">
+                    No close historical matches were found in the local sales dataset for this domain shape.
+                  </div>
+                )}
+              </SectionCard>
+
+              <SectionCard eyebrow="Acquisition Workflow" title="Turn analysis into a buying stance">
+                <div className="grid gap-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Target buy price (USD)</label>
+                      <input
+                        value={targetBuyPrice}
+                        onChange={(event) => setTargetBuyPrice(event.target.value)}
+                        placeholder="50"
+                        className="data-mono mt-2 min-h-[48px] w-full rounded-2xl border border-black bg-white px-4 text-base text-black outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Max budget (USD)</label>
+                      <input
+                        value={maxBudget}
+                        onChange={(event) => setMaxBudget(event.target.value)}
+                        placeholder="100"
+                        className="data-mono mt-2 min-h-[48px] w-full rounded-2xl border border-black bg-white px-4 text-base text-black outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Negotiation stance</label>
+                    <select
+                      value={negotiationStance}
+                      onChange={(event) => setNegotiationStance(event.target.value)}
+                      className="mt-2 min-h-[48px] w-full rounded-2xl border border-black bg-white px-4 text-base text-black outline-none"
+                    >
+                      <option>Disciplined</option>
+                      <option>Opportunistic</option>
+                      <option>Aggressive</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <DetailRow label="Target buy price" value={numericTargetBuyPrice ? formatInrFromUsd(numericTargetBuyPrice) : "Not set"} mono />
+                    <DetailRow label="Max budget" value={numericMaxBudget ? formatInrFromUsd(numericMaxBudget) : "Not set"} mono />
+                    <DetailRow label="Negotiation stance" value={negotiationStance} />
+                  </div>
+                  <div className="rounded-[22px] border border-black bg-[var(--lime)] px-4 py-4 text-sm leading-7 text-black">
+                    {acquisitionReadiness}
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard eyebrow="Market Posture" title="Resale and listing context">
                 <div className="grid gap-3">
                   <DetailRow label="Comparable sale count" value={`${result.comparableSalesCount}`} mono />
                   <DetailRow label="Market score" value={`${result.marketScore}`} mono />

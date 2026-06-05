@@ -8,6 +8,9 @@ export type WatchItem = {
   registrar?: string | null;
   expiresAt?: string | null;
   lastCheckedAt?: string | null;
+  targetBuyPriceUsd?: number | null;
+  maxBudgetUsd?: number | null;
+  negotiationStance?: string | null;
   createdAt?: number;
   updatedAt?: number;
 };

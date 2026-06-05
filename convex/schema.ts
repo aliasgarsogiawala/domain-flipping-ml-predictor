@@ -12,6 +12,9 @@ export default defineSchema({
     registrar: v.optional(v.string()),
     expiresAt: v.optional(v.string()),
     lastCheckedAt: v.optional(v.string()),
+    targetBuyPriceUsd: v.optional(v.number()),
+    maxBudgetUsd: v.optional(v.number()),
+    negotiationStance: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

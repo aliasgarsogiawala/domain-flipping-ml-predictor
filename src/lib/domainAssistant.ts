@@ -59,6 +59,14 @@ export type AssistantChatResponse = {
   } | null;
 };
 
+export type MarketAssistantResponse = {
+  provider: "gemini" | "openai" | "fallback";
+  model: string | null;
+  answer: string;
+  insights: string[];
+  suggestedFilters: string[];
+};
+
 export type AssistantAnalysisContext = {
   domain: string;
   score: number;
@@ -130,6 +138,26 @@ async function buildMarketContext() {
       saleCount: row.saleCount,
     })),
     topCategories: market.categoryBreakdown.slice(0, 5),
+  };
+}
+
+function fallbackMarketResponse(
+  marketContext: Awaited<ReturnType<typeof buildMarketContext>>,
+): MarketAssistantResponse {
+  return {
+    provider: "fallback",
+    model: null,
+    answer: `The local market dataset points first toward ${marketContext.bestPerformingTldByMedianPrice} for pricing strength and ${marketContext.mostActiveTld} for broader liquidity. For sourcing, tighter screens around one TLD and one budget band usually reveal better patterns than a broad market sweep.`,
+    insights: [
+      `Dataset median sale price is ${formatInrFromUsd(marketContext.medianSalePrice)}.`,
+      `${marketContext.bestPerformingTldByMedianPrice} is the strongest median-price extension in the current dataset snapshot.`,
+      `${marketContext.mostActiveTld} carries the deepest observed sales count right now.`,
+    ],
+    suggestedFilters: [
+      `${marketContext.bestPerformingTldByMedianPrice} + $1k-$5k`,
+      `${marketContext.mostActiveTld} + startup`,
+      `All TLDs + under $5k`,
+    ],
   };
 }
 
@@ -647,4 +675,89 @@ export async function generateAssistantChatReply(params: {
   } catch {
     return fallbackChatResponse(params.message, params.analysisContext);
   }
+}
+
+export async function generateMarketAssistantReply(question: string): Promise<MarketAssistantResponse> {
+  const marketContext = await buildMarketContext();
+
+  try {
+    const geminiResult = await generateGeminiJson<{
+      answer: string;
+      insights: string[];
+      suggestedFilters: string[];
+    }>({
+      prompt: [
+        "You are a domain market research assistant.",
+        "Answer using only the supplied local market dataset context.",
+        "Do not claim live or real-time external data.",
+        JSON.stringify({ question, marketContext }),
+      ].join("\n\n"),
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          answer: { type: "string" },
+          insights: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
+          suggestedFilters: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
+        },
+        required: ["answer", "insights", "suggestedFilters"],
+      },
+    });
+
+    if (geminiResult) {
+      return {
+        provider: "gemini",
+        model: DEFAULT_GEMINI_MODEL,
+        answer: geminiResult.parsed.answer,
+        insights: geminiResult.parsed.insights.slice(0, 4),
+        suggestedFilters: geminiResult.parsed.suggestedFilters.slice(0, 4),
+      };
+    }
+  } catch {
+    // Fall through.
+  }
+
+  const client = getClient();
+  if (client) {
+    try {
+      const response = await client.responses.create({
+        model: DEFAULT_MODEL,
+        input: `Answer this market question using only the supplied local dataset context.\n\n${JSON.stringify({
+          question,
+          marketContext,
+        })}`,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "market_assistant",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                answer: { type: "string" },
+                insights: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
+                suggestedFilters: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
+              },
+              required: ["answer", "insights", "suggestedFilters"],
+            },
+          },
+          verbosity: "low",
+        },
+      });
+
+      const parsed = JSON.parse(response.output_text) as MarketAssistantResponse;
+      return {
+        provider: "openai",
+        model: DEFAULT_MODEL,
+        answer: parsed.answer,
+        insights: parsed.insights.slice(0, 4),
+        suggestedFilters: parsed.suggestedFilters.slice(0, 4),
+      };
+    } catch {
+      // Fall through.
+    }
+  }
+
+  return fallbackMarketResponse(marketContext);
 }

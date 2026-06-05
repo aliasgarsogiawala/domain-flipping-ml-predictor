@@ -1,4 +1,5 @@
 import CategoryBreakdownChart from "@/components/market/CategoryBreakdownChart";
+import MarketAiPanel from "@/components/market/MarketAiPanel";
 import MarketSummaryCards from "@/components/market/MarketSummaryCards";
 import SalesTable from "@/components/market/SalesTable";
 import TldComparisonPanel from "@/components/market/TldComparisonPanel";
@@ -185,6 +186,31 @@ export default async function MarketPage() {
         </section>
       ) : null}
 
+      {marketData.anomalies.length ? (
+        <section className="mt-8 panel-white rounded-[30px] p-6 sm:p-8">
+          <div className="border-b border-black pb-4">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Market Anomalies</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Unusual pricing pockets</h2>
+          </div>
+          <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+            {marketData.anomalies.map((anomaly) => (
+              <div
+                key={`${anomaly.type}-${anomaly.key}`}
+                className={`rounded-[24px] border border-black p-5 ${
+                  anomaly.direction === "hot" ? "bg-[var(--lime)]" : "bg-white"
+                }`}
+              >
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">
+                  {anomaly.type} anomaly
+                </p>
+                <p className="mt-3 data-mono text-xl font-semibold text-black">{anomaly.key}</p>
+                <p className="mt-2 text-sm leading-7 text-slate-700">{anomaly.note}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="panel-white rounded-[30px] p-6 sm:p-8">
           <div className="border-b border-black pb-4">
@@ -237,6 +263,10 @@ export default async function MarketPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="mt-8">
+        <MarketAiPanel />
       </section>
 
       <section className="mt-8 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">

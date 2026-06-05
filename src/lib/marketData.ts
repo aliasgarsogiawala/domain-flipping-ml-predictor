@@ -40,12 +40,28 @@ export type PriceDistributionRow = {
   count: number;
 };
 
+export type ComparableSaleMatch = MarketSaleRecord & {
+  similarityScore: number;
+  matchReasons: string[];
+};
+
+export type MarketAnomaly = {
+  type: "tld" | "category";
+  key: string;
+  direction: "hot" | "soft";
+  medianPrice: number;
+  baselineMedianPrice: number;
+  ratio: number;
+  note: string;
+};
+
 export type MarketDataResult = {
   latestReportedSales: MarketSaleRecord[];
   summary: MarketSummary;
   tldPerformance: TldPerformanceRow[];
   categoryBreakdown: CategoryBreakdownRow[];
   priceDistribution: PriceDistributionRow[];
+  anomalies: MarketAnomaly[];
   availableTlds: string[];
   availableCategories: string[];
   dataSource: "processed" | "raw" | "empty";
@@ -56,6 +72,7 @@ const MASTER_DATASET_PATH = path.join(ROOT, "data", "processed", "domain_sales_m
 const SNAPSHOT_DATASET_PATH = path.join(ROOT, "data", "processed", "market_snapshot.json");
 const RAW_DATA_DIR = path.join(ROOT, "data", "raw");
 let marketDataPromise: Promise<MarketDataResult> | null = null;
+let marketRecordsPromise: Promise<MarketSaleRecord[]> | null = null;
 
 function parseDelimitedLine(line: string, delimiter: string) {
   const values: string[] = [];
@@ -123,6 +140,27 @@ function inferWordCount(domain: string) {
 
 function inferCharLength(domain: string) {
   return inferName(domain).replace(/\./g, "").length;
+}
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  ai: ["ai", "agent", "gpt", "model", "neural", "bot"],
+  startup: ["labs", "stack", "flow", "base", "launch", "build"],
+  finance: ["pay", "bank", "fund", "trade", "capital", "invest"],
+  crypto: ["crypto", "chain", "coin", "wallet", "block"],
+  health: ["health", "care", "med", "clinic", "bio"],
+  data: ["data", "cloud", "ops", "sync", "graph", "signal"],
+};
+
+export function inferMarketCategory(domain: string) {
+  const name = inferName(domain);
+
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some((keyword) => name.includes(keyword))) {
+      return category;
+    }
+  }
+
+  return "general";
 }
 
 function normalizeDate(value: string | undefined) {
@@ -251,6 +289,7 @@ async function loadSnapshotData() {
     tldPerformance: parsed.tldPerformance ?? [],
     categoryBreakdown: parsed.categoryBreakdown ?? [],
     priceDistribution: parsed.priceDistribution ?? [],
+    anomalies: parsed.anomalies ?? [],
     availableTlds: parsed.availableTlds ?? [],
     availableCategories: parsed.availableCategories ?? [],
     dataSource: "processed" as const,
@@ -337,6 +376,177 @@ function buildPriceDistribution(records: MarketSaleRecord[]): PriceDistributionR
   }));
 }
 
+function buildMarketAnomalies(records: MarketSaleRecord[]): MarketAnomaly[] {
+  const overallMedian = computeMedian(records.map((record) => record.salePriceUsd));
+  const anomalies: MarketAnomaly[] = [];
+
+  const evaluateGroup = (
+    type: "tld" | "category",
+    key: string,
+    groupedRecords: MarketSaleRecord[],
+  ) => {
+    if (groupedRecords.length < 6) return;
+
+    const medianPrice = computeMedian(groupedRecords.map((record) => record.salePriceUsd));
+    const ratio = overallMedian > 0 ? medianPrice / overallMedian : 1;
+
+    if (ratio >= 1.9) {
+      anomalies.push({
+        type,
+        key,
+        direction: "hot",
+        medianPrice,
+        baselineMedianPrice: overallMedian,
+        ratio,
+        note: `${key} is pricing well above the broader observed median, suggesting stronger-than-average buyer willingness.`,
+      });
+    } else if (ratio <= 0.45) {
+      anomalies.push({
+        type,
+        key,
+        direction: "soft",
+        medianPrice,
+        baselineMedianPrice: overallMedian,
+        ratio,
+        note: `${key} is clearing well below the broader observed median, suggesting weaker liquidity or narrower buyer fit.`,
+      });
+    }
+  };
+
+  const byTld = new Map<string, MarketSaleRecord[]>();
+  const byCategory = new Map<string, MarketSaleRecord[]>();
+
+  for (const record of records) {
+    byTld.set(record.tld, [...(byTld.get(record.tld) ?? []), record]);
+    byCategory.set(record.category, [...(byCategory.get(record.category) ?? []), record]);
+  }
+
+  for (const [tld, groupedRecords] of byTld.entries()) {
+    evaluateGroup("tld", tld, groupedRecords);
+  }
+
+  for (const [category, groupedRecords] of byCategory.entries()) {
+    evaluateGroup("category", category, groupedRecords);
+  }
+
+  return anomalies
+    .sort((left, right) => Math.abs(right.ratio - 1) - Math.abs(left.ratio - 1))
+    .slice(0, 8);
+}
+
+function scoreComparableMatch(params: {
+  targetTld: string;
+  targetLength: number;
+  targetCategory: string;
+  record: MarketSaleRecord;
+}) {
+  let score = 0;
+  const reasons: string[] = [];
+
+  if (params.record.tld === params.targetTld) {
+    score += 45;
+    reasons.push("Same TLD");
+  }
+
+  const lengthGap = Math.abs((params.record.charLength ?? params.targetLength) - params.targetLength);
+  if (lengthGap === 0) {
+    score += 24;
+    reasons.push("Same length");
+  } else if (lengthGap <= 2) {
+    score += 16;
+    reasons.push("Similar length");
+  } else if (lengthGap <= 4) {
+    score += 8;
+  }
+
+  if (params.record.category === params.targetCategory) {
+    score += 22;
+    reasons.push("Same category");
+  } else if (params.targetCategory === "general" || params.record.category === "general") {
+    score += 6;
+  }
+
+  if ((params.record.wordCount ?? 1) === 1) {
+    score += 4;
+  }
+
+  return {
+    score,
+    reasons,
+  };
+}
+
+async function loadMarketRecordsPool() {
+  if (marketRecordsPromise) {
+    return marketRecordsPromise;
+  }
+
+  marketRecordsPromise = (async () => {
+    const hasMasterDataset = await fs
+      .access(MASTER_DATASET_PATH)
+      .then(() => true)
+      .catch(() => false);
+
+    if (hasMasterDataset) {
+      return (await loadMasterRecords()).filter((record) => record.salePriceUsd > 0);
+    }
+
+    const hasSnapshotDataset = await fs
+      .access(SNAPSHOT_DATASET_PATH)
+      .then(() => true)
+      .catch(() => false);
+
+    if (hasSnapshotDataset) {
+      const snapshot = await loadSnapshotData();
+      return snapshot.latestReportedSales.filter((record) => record.salePriceUsd > 0);
+    }
+
+    return (await loadRawRecords()).filter((record) => record.salePriceUsd > 0);
+  })();
+
+  try {
+    return await marketRecordsPromise;
+  } catch (error) {
+    marketRecordsPromise = null;
+    throw error;
+  }
+}
+
+export async function findComparableSales(domain: string, limit = 5): Promise<ComparableSaleMatch[]> {
+  const records = await loadMarketRecordsPool();
+  if (records.length === 0) return [];
+
+  const normalizedDomain = domain.trim().toLowerCase();
+  const targetTld = inferTld(normalizedDomain);
+  const targetLength = inferCharLength(normalizedDomain);
+  const targetCategory = inferMarketCategory(normalizedDomain);
+
+  return records
+    .filter((record) => record.domain !== normalizedDomain)
+    .map((record) => {
+      const { score, reasons } = scoreComparableMatch({
+        targetTld,
+        targetLength,
+        targetCategory,
+        record,
+      });
+
+      return {
+        ...record,
+        similarityScore: score,
+        matchReasons: reasons,
+      };
+    })
+    .filter((record) => record.similarityScore >= 36)
+    .sort((left, right) => {
+      if (right.similarityScore !== left.similarityScore) {
+        return right.similarityScore - left.similarityScore;
+      }
+      return right.salePriceUsd - left.salePriceUsd;
+    })
+    .slice(0, limit);
+}
+
 export async function loadMarketData(): Promise<MarketDataResult> {
   if (marketDataPromise) {
     return marketDataPromise;
@@ -387,6 +597,7 @@ export async function loadMarketData(): Promise<MarketDataResult> {
           { range: "$10k-$50k", count: 0 },
           { range: "$50k+", count: 0 },
         ],
+        anomalies: [],
         availableTlds: [],
         availableCategories: [],
         dataSource: "empty",
@@ -398,6 +609,7 @@ export async function loadMarketData(): Promise<MarketDataResult> {
     const tldPerformance = buildTldPerformance(records);
     const categoryBreakdown = buildCategoryBreakdown(records);
     const priceDistribution = buildPriceDistribution(records);
+    const anomalies = buildMarketAnomalies(records);
     const availableTlds = [...new Set(records.map((record) => record.tld))].sort();
     const availableCategories = [...new Set(records.map((record) => record.category))].sort();
 
@@ -407,6 +619,7 @@ export async function loadMarketData(): Promise<MarketDataResult> {
       tldPerformance,
       categoryBreakdown,
       priceDistribution,
+      anomalies,
       availableTlds,
       availableCategories,
       dataSource: hasMasterDataset ? "processed" : "raw",

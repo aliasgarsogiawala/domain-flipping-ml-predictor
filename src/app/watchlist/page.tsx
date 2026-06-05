@@ -92,6 +92,7 @@ function WatchlistContent() {
   const updateWatchedDomain = useMutation(updateWatchedDomainRef);
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [renderNow] = useState(() => Date.now());
 
   async function handleRemove(domain: string) {
     await removeWatchedDomain({ domain });
@@ -110,6 +111,9 @@ function WatchlistContent() {
         registrar: res.rdap?.registrar ?? null,
         expiresAt: res.rdap?.expiresAt ?? null,
         lastCheckedAt: new Date().toISOString(),
+        targetBuyPriceUsd: items.find((item) => item.domain === domain)?.targetBuyPriceUsd ?? undefined,
+        maxBudgetUsd: items.find((item) => item.domain === domain)?.maxBudgetUsd ?? undefined,
+        negotiationStance: items.find((item) => item.domain === domain)?.negotiationStance ?? undefined,
       });
     } catch (e) {
       console.error(e);
@@ -132,6 +136,9 @@ function WatchlistContent() {
           registrar: res.rdap?.registrar ?? null,
           expiresAt: res.rdap?.expiresAt ?? null,
           lastCheckedAt: new Date().toISOString(),
+          targetBuyPriceUsd: it.targetBuyPriceUsd ?? undefined,
+          maxBudgetUsd: it.maxBudgetUsd ?? undefined,
+          negotiationStance: it.negotiationStance ?? undefined,
         });
       } catch (e) {
         console.error(e);
@@ -145,6 +152,35 @@ function WatchlistContent() {
     ? Math.round(items.reduce((sum, item) => sum + (item.score ?? 0), 0) / items.length)
     : 0;
   const takenCount = items.filter((item) => item.availabilityStatus === "Taken").length;
+  const highestUpside = items
+    .slice()
+    .sort((left, right) => (right.estimatedValueUsd ?? 0) - (left.estimatedValueUsd ?? 0))[0] ?? null;
+  const highestRisk = items
+    .slice()
+    .sort((left, right) => (left.score ?? 0) - (right.score ?? 0))[0] ?? null;
+  const expiringSoonCount = items.filter((item) => {
+    if (!item.expiresAt) return false;
+    const expiry = Date.parse(item.expiresAt);
+    if (Number.isNaN(expiry)) return false;
+    const days = (expiry - renderNow) / (1000 * 60 * 60 * 24);
+    return days >= 0 && days <= 45;
+  }).length;
+
+  async function handleWorkflowSave(domain: string, current: WatchItem, updates: Partial<WatchItem>) {
+    await updateWatchedDomain({
+      domain,
+      score: current.score,
+      availabilityStatus: current.availabilityStatus,
+      resaleStatus: current.resaleStatus ?? undefined,
+      estimatedValueUsd: current.estimatedValueUsd ?? undefined,
+      registrar: current.registrar ?? undefined,
+      expiresAt: current.expiresAt ?? undefined,
+      lastCheckedAt: current.lastCheckedAt ?? undefined,
+      targetBuyPriceUsd: updates.targetBuyPriceUsd ?? current.targetBuyPriceUsd ?? undefined,
+      maxBudgetUsd: updates.maxBudgetUsd ?? current.maxBudgetUsd ?? undefined,
+      negotiationStance: updates.negotiationStance ?? current.negotiationStance ?? undefined,
+    });
+  }
   return (
     <main className="pb-16">
       <section className="relative overflow-hidden rounded-[32px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
@@ -269,6 +305,24 @@ function WatchlistContent() {
                 </div>
               </div>
 
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <div className="panel-white-soft rounded-[22px] p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Highest upside</p>
+                  <p className="data-mono mt-3 text-lg font-semibold text-black">{highestUpside?.domain ?? "-"}</p>
+                  <p className="mt-2 text-sm text-slate-600">{highestUpside ? formatInrFromUsd(highestUpside.estimatedValueUsd) : "No data"}</p>
+                </div>
+                <div className="panel-white-soft rounded-[22px] p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Highest risk</p>
+                  <p className="data-mono mt-3 text-lg font-semibold text-black">{highestRisk?.domain ?? "-"}</p>
+                  <p className="mt-2 text-sm text-slate-600">{highestRisk ? `Score ${highestRisk.score ?? "-"}` : "No data"}</p>
+                </div>
+                <div className="panel-white-soft rounded-[22px] p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Expiring soon</p>
+                  <p className="data-mono mt-3 text-lg font-semibold text-black">{expiringSoonCount}</p>
+                  <p className="mt-2 text-sm text-slate-600">Domains inside a 45-day expiry window.</p>
+                </div>
+              </div>
+
               <div className="mt-6 overflow-x-auto">
                 <table className="min-w-full text-left">
                   <thead>
@@ -278,6 +332,7 @@ function WatchlistContent() {
                       <th className="px-3 py-3 font-medium">Expiry</th>
                       <th className="px-3 py-3 font-medium">Estimated Value</th>
                       <th className="px-3 py-3 font-medium">Score</th>
+                      <th className="px-3 py-3 font-medium">Workflow</th>
                       <th className="px-3 py-3 font-medium">Last Checked</th>
                       <th className="px-3 py-3 font-medium text-right">Actions</th>
                     </tr>
@@ -298,6 +353,43 @@ function WatchlistContent() {
                         <td className="px-3 py-4 text-sm text-slate-700">{formatDate(it.expiresAt)}</td>
                         <td className="data-mono px-3 py-4 text-sm text-slate-700">{formatInrFromUsd(it.estimatedValueUsd)}</td>
                         <td className="data-mono px-3 py-4 text-sm text-slate-700">{it.score ?? "-"}</td>
+                        <td className="px-3 py-4">
+                          <div className="space-y-2">
+                            <input
+                              defaultValue={it.targetBuyPriceUsd ?? ""}
+                              onBlur={(event) =>
+                                void handleWorkflowSave(it.domain, it, {
+                                  targetBuyPriceUsd: event.target.value ? Number(event.target.value) : undefined,
+                                })
+                              }
+                              placeholder="Target buy $"
+                              className="data-mono min-h-[38px] w-full rounded-xl border border-black bg-white px-3 text-xs text-black outline-none"
+                            />
+                            <input
+                              defaultValue={it.maxBudgetUsd ?? ""}
+                              onBlur={(event) =>
+                                void handleWorkflowSave(it.domain, it, {
+                                  maxBudgetUsd: event.target.value ? Number(event.target.value) : undefined,
+                                })
+                              }
+                              placeholder="Max budget $"
+                              className="data-mono min-h-[38px] w-full rounded-xl border border-black bg-white px-3 text-xs text-black outline-none"
+                            />
+                            <select
+                              defaultValue={it.negotiationStance ?? "Disciplined"}
+                              onChange={(event) =>
+                                void handleWorkflowSave(it.domain, it, {
+                                  negotiationStance: event.target.value,
+                                })
+                              }
+                              className="min-h-[38px] w-full rounded-xl border border-black bg-white px-3 text-xs text-black outline-none"
+                            >
+                              <option>Disciplined</option>
+                              <option>Opportunistic</option>
+                              <option>Aggressive</option>
+                            </select>
+                          </div>
+                        </td>
                         <td className="px-3 py-4 text-sm text-slate-600">{formatDate(it.lastCheckedAt)}</td>
                         <td className="px-3 py-4">
                           <div className="flex justify-end gap-2">

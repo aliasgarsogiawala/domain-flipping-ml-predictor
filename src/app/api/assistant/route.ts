@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   generateAssistantChatReply,
   generateAssistantIdeas,
+  generateMarketAssistantReply,
   type AssistantAnalysisContext,
   type AssistantChatMessage,
   type DomainIdeaBrief,
@@ -59,6 +60,16 @@ export async function POST(request: Request) {
       }
 
       const result = await generateAssistantIdeas(brief);
+      return NextResponse.json(result);
+    }
+
+    if (mode === "market") {
+      const question = String(body.question ?? "").trim();
+      if (!question) {
+        return NextResponse.json({ error: "Question is required." }, { status: 400 });
+      }
+
+      const result = await generateMarketAssistantReply(question);
       return NextResponse.json(result);
     }
 
