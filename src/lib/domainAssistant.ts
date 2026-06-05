@@ -136,7 +136,7 @@ function fallbackGenerateIdeas(brief: DomainIdeaBrief): DomainIdeaResponse {
   const keywords = tokenizeKeywords(brief.keywords.length ? brief.keywords : [brief.niche]);
   const stems = keywords.length ? keywords.slice(0, 3) : ["signal", "domain"];
   const tlds = brief.preferredTlds.length ? brief.preferredTlds : [".com", ".ai", ".io"];
-  const styleModifiers =
+  const styleParts =
     brief.brandStyle === "Premium"
       ? ["prime", "north", "true", "core", "vault"]
       : brief.brandStyle === "Exact Match"
@@ -147,8 +147,8 @@ function fallbackGenerateIdeas(brief: DomainIdeaBrief): DomainIdeaResponse {
 
   for (const tld of tlds) {
     for (const stem of stems) {
-      for (const modifier of styleModifiers) {
-        const name = brief.brandStyle === "Exact Match" ? `${stem}${modifier}` : `${modifier}${stem}`;
+      for (const part of styleParts) {
+        const name = brief.brandStyle === "Exact Match" ? `${stem}${part}` : `${part}${stem}`;
         const domain = normalizeDomain(`${name.replace(/[^a-z0-9-]/g, "")}${tld}`.replace(/\.\./g, "."));
         if (!domain) continue;
         suggestions.push({
@@ -186,9 +186,9 @@ function fallbackGenerateIdeas(brief: DomainIdeaBrief): DomainIdeaResponse {
   return {
     provider: "fallback",
     model: null,
-    overview: `Generated ${suggestions.length} domain ideas from your keyword, budget, and TLD preferences using the local suggestion engine.`,
+    overview: `Generated ${suggestions.length} starter names from your budget, keyword, and TLD preferences using the built-in fallback engine.`,
     marketNote:
-      "This suggestion set is grounded in local market benchmarks and naming heuristics. AI enhancement will improve nuance when an API key is available.",
+      "These ideas come from the local naming heuristic layer, using market anchors and basic domain-quality rules. They are useful as placeholders, but not as strong as live model output.",
     suggestions: suggestions.slice(0, 6),
     diagnostics: {
       attemptedProviders: ["fallback"],

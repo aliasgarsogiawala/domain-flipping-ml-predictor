@@ -16,6 +16,11 @@ export type OpenAIDomainInsights = {
   confidence: OpenAIAdvisoryConfidence;
   suggestedRecommendation: InvestmentRecommendation;
   valueAdjustmentPercent: number;
+  premiumFeelScore: number;
+  eliteWordSignal: boolean;
+  endUserDemandScore: number;
+  aftermarketStrengthScore: number;
+  negotiationRiskScore: number;
 };
 
 export type OpenAIDomainAdvisorInput = {
@@ -89,6 +94,29 @@ const advisorySchema = {
       minimum: -12,
       maximum: 12,
     },
+    premiumFeelScore: {
+      type: "integer",
+      minimum: 0,
+      maximum: 100,
+    },
+    eliteWordSignal: {
+      type: "boolean",
+    },
+    endUserDemandScore: {
+      type: "integer",
+      minimum: 0,
+      maximum: 100,
+    },
+    aftermarketStrengthScore: {
+      type: "integer",
+      minimum: 0,
+      maximum: 100,
+    },
+    negotiationRiskScore: {
+      type: "integer",
+      minimum: 0,
+      maximum: 100,
+    },
   },
   required: [
     "summary",
@@ -101,6 +129,11 @@ const advisorySchema = {
     "confidence",
     "suggestedRecommendation",
     "valueAdjustmentPercent",
+    "premiumFeelScore",
+    "eliteWordSignal",
+    "endUserDemandScore",
+    "aftermarketStrengthScore",
+    "negotiationRiskScore",
   ],
 } as const;
 
@@ -202,6 +235,39 @@ function buildFallbackInsights(input: OpenAIDomainAdvisorInput): OpenAIDomainIns
     confidence: "Low",
     suggestedRecommendation: recommendation,
     valueAdjustmentPercent,
+    premiumFeelScore:
+      input.score >= 80 && input.name.length <= 8 && input.tld === "com"
+        ? 72
+        : input.score >= 65
+          ? 54
+          : 24,
+    eliteWordSignal:
+      input.tld === "com" &&
+      !input.name.includes("-") &&
+      !/\d/.test(input.name) &&
+      input.name.length <= 7 &&
+      input.score >= 82,
+    endUserDemandScore: clamp(
+      Math.round(input.score * 0.55 + (input.comparableSalesCount ?? 0) * 8 + (input.tld === "com" ? 12 : 0)),
+      0,
+      100,
+    ),
+    aftermarketStrengthScore: clamp(
+      Math.round((input.comparableSalesCount ?? 0) * 14 + (input.tld === "com" ? 18 : input.tld === "ai" ? 10 : 0)),
+      0,
+      100,
+    ),
+    negotiationRiskScore: clamp(
+      input.availabilityStatus === "Taken"
+        ? 70
+        : input.resaleStatus === "listed_for_sale"
+          ? 60
+          : input.riskLevel === "High"
+            ? 68
+            : 32,
+      0,
+      100,
+    ),
   };
 }
 
@@ -248,6 +314,32 @@ function normalizeInsightPayload(
       -12,
       12,
     ),
+    premiumFeelScore: clamp(
+      typeof payload.premiumFeelScore === "number" ? Math.round(payload.premiumFeelScore) : fallback.premiumFeelScore,
+      0,
+      100,
+    ),
+    eliteWordSignal:
+      typeof payload.eliteWordSignal === "boolean" ? payload.eliteWordSignal : fallback.eliteWordSignal,
+    endUserDemandScore: clamp(
+      typeof payload.endUserDemandScore === "number" ? Math.round(payload.endUserDemandScore) : fallback.endUserDemandScore,
+      0,
+      100,
+    ),
+    aftermarketStrengthScore: clamp(
+      typeof payload.aftermarketStrengthScore === "number"
+        ? Math.round(payload.aftermarketStrengthScore)
+        : fallback.aftermarketStrengthScore,
+      0,
+      100,
+    ),
+    negotiationRiskScore: clamp(
+      typeof payload.negotiationRiskScore === "number"
+        ? Math.round(payload.negotiationRiskScore)
+        : fallback.negotiationRiskScore,
+      0,
+      100,
+    ),
   };
 }
 
@@ -274,7 +366,7 @@ export async function generateOpenAIDomainInsights(
     const response = await client.responses.create({
       model: DEFAULT_MODEL,
       instructions:
-        "You are an analyst inside a domain investing platform. Stay analytical and conservative. Do not promise profits. Use only modest valuation adjustments. Similar domain suggestions should be brand-adjacent and plausible domain strings, not claims of availability.",
+        "You are an analyst inside a domain investing platform. Stay analytical and conservative. Do not promise profits. Use only modest valuation adjustments. Similar domain suggestions should be brand-adjacent and plausible domain strings, not claims of availability. Be strict about premium ratings: only truly elite, broad-demand domains should score highly on premium feel or elite-word signal.",
       input: [
         {
           role: "user",

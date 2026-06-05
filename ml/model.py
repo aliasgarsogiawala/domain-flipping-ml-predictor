@@ -46,14 +46,14 @@ def predict_domain_value(domain: str, model_path: Path | str = MODEL_PATH) -> di
     feature_row = extract_domain_features(domain)
     frame = pd.DataFrame([feature_row.__dict__])
 
-    predicted_value = float(pipeline.predict(frame)[0])
+    predicted_value = float(np.expm1(pipeline.predict(frame)[0]))
     predicted_value = round(max(predicted_value, 0.0), 2)
 
     preprocessor = pipeline.named_steps["preprocessor"]
     regressor = pipeline.named_steps["regressor"]
     transformed = preprocessor.transform(frame)
     tree_predictions = np.asarray(
-        [estimator.predict(transformed)[0] for estimator in regressor.estimators_],
+        [np.expm1(estimator.predict(transformed)[0]) for estimator in regressor.estimators_],
         dtype=float,
     )
 
@@ -69,5 +69,16 @@ def predict_domain_value(domain: str, model_path: Path | str = MODEL_PATH) -> di
             "containsHyphen": feature_row.contains_hyphen,
             "premiumKeywordCount": feature_row.premium_keyword_count,
             "estimatedBrandabilityScore": feature_row.estimated_brandability_score,
+            "tldTierScore": feature_row.tld_tier_score,
+            "vowelRatio": feature_row.vowel_ratio,
+            "uniqueCharRatio": feature_row.unique_char_ratio,
+            "startsWithPremiumKeyword": feature_row.starts_with_premium_keyword,
+            "endsWithPremiumKeyword": feature_row.ends_with_premium_keyword,
+            "exactMatchBias": feature_row.exact_match_bias,
+            "pronounceabilityScore": feature_row.pronounceability_score,
+            "shortPremiumSignal": feature_row.short_premium_signal,
+            "tokenBalanceScore": feature_row.token_balance_score,
+            "repeatedCharPenalty": feature_row.repeated_char_penalty,
+            "categoryHint": feature_row.category_hint,
         },
     }

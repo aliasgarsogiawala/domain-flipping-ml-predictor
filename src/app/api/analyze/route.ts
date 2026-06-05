@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import {
   analyzeRuleDomain,
   getRiskFromScore,
-  getVerdictFromScore,
   scoreRegistrationHistory,
   STRONG_TLDS_MAP,
 } from "@/lib/domainAnalyzer";
@@ -55,6 +54,7 @@ function adjustEstimatedValue(params: {
   premiumSignal: boolean;
   comparableSalesCount: number;
   domainLength: number;
+  lowQualitySignal?: boolean;
 }) {
   const anchor = getTldAnchor(params.tld);
   const raw = params.rawEstimatedValueUsd;
@@ -109,6 +109,16 @@ function adjustEstimatedValue(params: {
     }
   }
 
+  if (params.score < 35) {
+    adjusted = Math.min(adjusted, Math.max(180, anchor.medianVisibleSaleUsd * 0.22));
+  } else if (params.score < 45 && params.riskLevel === "High") {
+    adjusted = Math.min(adjusted, Math.max(260, anchor.medianVisibleSaleUsd * 0.32));
+  }
+
+  if (params.lowQualitySignal) {
+    adjusted = Math.min(adjusted, Math.max(220, anchor.medianVisibleSaleUsd * 0.28));
+  }
+
   return {
     tldMarketAnchorUsd: anchor.medianVisibleSaleUsd,
     adjustedEstimatedValueUsd: Math.round(adjusted),
@@ -136,6 +146,174 @@ async function computeMarketScore(marketData: MockMarketData) {
   else if (marketData.marketDemand === "Medium") score += 5;
 
   return Math.min(100, Math.round(score));
+}
+
+function scoreMlQualityAdjustment(
+  mlPrediction: Awaited<ReturnType<typeof predictDomainValueWithMl>>,
+  tld: string,
+) {
+  const features = mlPrediction?.extractedFeatures;
+  if (!features) return 0;
+
+  let adjustment = 0;
+
+  if (
+    features.estimatedBrandabilityScore >= 88 &&
+    features.pronounceabilityScore >= 72 &&
+    features.domainLength <= 8 &&
+    features.containsNumber === 0 &&
+    features.containsHyphen === 0
+  ) {
+    adjustment += 4;
+  }
+
+  if (features.shortPremiumSignal === 1 && (tld === "com" || tld === "ai")) {
+    adjustment += 3;
+  }
+
+  if (features.tldTierScore <= 45) {
+    adjustment -= 4;
+  }
+
+  if (features.pronounceabilityScore <= 30) {
+    adjustment -= 5;
+  }
+
+  if (features.repeatedCharPenalty >= 20) {
+    adjustment -= 2;
+  }
+
+  if (features.containsNumber === 1 && features.domainLength >= 10) {
+    adjustment -= 3;
+  }
+
+  if (features.categoryHint === "brand" && features.uniqueCharRatio >= 0.72) {
+    adjustment += 2;
+  }
+
+  return clamp(adjustment, -8, 8);
+}
+
+function hasLowQualityMlShape(
+  mlPrediction: Awaited<ReturnType<typeof predictDomainValueWithMl>>,
+) {
+  const features = mlPrediction?.extractedFeatures;
+  if (!features) return false;
+
+  return (
+    features.pronounceabilityScore <= 30 ||
+    features.tldTierScore <= 45 ||
+    (features.containsNumber === 1 && features.domainLength >= 9) ||
+    features.repeatedCharPenalty >= 20
+  );
+}
+
+function computeBrandPrestigeScore(params: {
+  breakdown: {
+    brandability: number;
+    memorability: number;
+    pronounceability: number;
+    premiumBrandSignal: number;
+  };
+  finalScore: number;
+  mlPrediction: Awaited<ReturnType<typeof predictDomainValueWithMl>>;
+}) {
+  const mlBrandability = params.mlPrediction?.extractedFeatures.estimatedBrandabilityScore ?? 50;
+  const mlPronounceability = params.mlPrediction?.extractedFeatures.pronounceabilityScore ?? 50;
+
+  let score = Math.round(
+    params.breakdown.brandability * 1.8 +
+      params.breakdown.memorability * 1.4 +
+      params.breakdown.pronounceability * 1.4 +
+      params.breakdown.premiumBrandSignal * 1.5 +
+      (mlBrandability - 50) * 0.14 +
+      (mlPronounceability - 50) * 0.12,
+  );
+
+  if (params.finalScore < 40) {
+    score = Math.min(score, params.finalScore + 12);
+  } else if (params.finalScore < 55) {
+    score = Math.min(score, params.finalScore + 16);
+  } else if (params.finalScore < 70) {
+    score = Math.min(score, params.finalScore + 10);
+  } else if (params.finalScore < 85) {
+    score = Math.min(score, params.finalScore + 14);
+  }
+
+  return clamp(score, 0, 100);
+}
+
+function applyPremiumRealityCaps(params: {
+  score: number;
+  tld: string;
+  marketData: MockMarketData;
+  mlPrediction: Awaited<ReturnType<typeof predictDomainValueWithMl>>;
+  aiInsights: Awaited<ReturnType<typeof generateOpenAIDomainInsights>>;
+  availabilityStatus: "Available" | "Taken" | "Unknown";
+}) {
+  let score = params.score;
+  const features = params.mlPrediction?.extractedFeatures;
+  const eliteLikeShape =
+    Boolean(features) &&
+    features.wordCount === 1 &&
+    features.domainLength <= 7 &&
+    features.containsNumber === 0 &&
+    features.containsHyphen === 0 &&
+    features.pronounceabilityScore >= 68 &&
+    features.categoryHint !== "general";
+
+  const strongAftermarketSupport =
+    params.marketData.comparableSalesCount >= 4 &&
+    params.aiInsights.aftermarketStrengthScore >= 72 &&
+    params.aiInsights.endUserDemandScore >= 70;
+
+  if (!params.aiInsights.eliteWordSignal && !eliteLikeShape) {
+    score = Math.min(score, params.tld === "com" ? 88 : 82);
+  }
+
+  if (
+    params.availabilityStatus === "Available" &&
+    params.marketData.comparableSalesCount <= 1 &&
+    params.aiInsights.premiumFeelScore < 72
+  ) {
+    score = Math.min(score, 76);
+  }
+
+  if (params.tld !== "com" && !strongAftermarketSupport) {
+    score = Math.min(score, 84);
+  }
+
+  if (
+    params.aiInsights.premiumFeelScore < 58 &&
+    params.aiInsights.endUserDemandScore < 56 &&
+    params.marketData.comparableSalesCount <= 1
+  ) {
+    score = Math.min(score, 68);
+  }
+
+  return clamp(score, 0, 100);
+}
+
+function getRealityCheckedVerdict(params: {
+  score: number;
+  aiInsights: Awaited<ReturnType<typeof generateOpenAIDomainInsights>>;
+  marketData: MockMarketData;
+  tld: string;
+}) {
+  if (
+    params.score >= 85 &&
+    params.aiInsights.premiumFeelScore >= 80 &&
+    (params.aiInsights.eliteWordSignal || params.marketData.comparableSalesCount >= 4) &&
+    params.aiInsights.endUserDemandScore >= 72 &&
+    params.aiInsights.aftermarketStrengthScore >= 70 &&
+    params.tld === "com"
+  ) {
+    return "Premium Potential" as const;
+  }
+
+  if (params.score >= 70) return "High Potential" as const;
+  if (params.score >= 50) return "Moderate Potential" as const;
+  return "Low Potential" as const;
 }
 
 export async function POST(request: Request) {
@@ -222,24 +400,19 @@ export async function POST(request: Request) {
       }
     }
 
+    final += scoreMlQualityAdjustment(mlPrediction, rule.tld);
+
     final = Math.max(0, Math.min(100, final));
 
-    const brandPrestigeScore = Math.max(
-      0,
-      Math.min(
-        100,
-        Math.round(
-          rule.breakdown.brandability * 2 +
-            rule.breakdown.memorability * 1.7 +
-            rule.breakdown.pronounceability * 1.4 +
-            rule.breakdown.premiumBrandSignal * 1.9,
-        ),
-      ),
-    );
+    let brandPrestigeScore = computeBrandPrestigeScore({
+      breakdown: rule.breakdown,
+      finalScore: final,
+      mlPrediction,
+    });
 
-    const investmentScore = final;
+    let investmentScore = final;
 
-    const valuation = adjustEstimatedValue({
+    let valuation = adjustEstimatedValue({
       rawEstimatedValueUsd: marketData.estimatedValueUsd,
       mlEstimatedValueUsd: mlPrediction?.predictedValueUsd ?? null,
       tld: rule.tld,
@@ -253,6 +426,7 @@ export async function POST(request: Request) {
       premiumSignal: marketData.premiumSignal,
       comparableSalesCount: marketData.comparableSalesCount,
       domainLength: rule.name.replace(/\./g, "").length,
+      lowQualitySignal: hasLowQualityMlShape(mlPrediction),
     });
 
     const openaiInsights = await generateOpenAIDomainInsights({
@@ -278,10 +452,55 @@ export async function POST(request: Request) {
       comparableSalesCount: marketData.comparableSalesCount,
     });
 
-    const aiAdjustedEstimatedValueUsd = applyAdvisoryValueAdjustment(
+    final = applyPremiumRealityCaps({
+      score: final,
+      tld: rule.tld,
+      marketData,
+      mlPrediction,
+      aiInsights: openaiInsights,
+      availabilityStatus: availability,
+    });
+
+    investmentScore = final;
+    brandPrestigeScore = computeBrandPrestigeScore({
+      breakdown: rule.breakdown,
+      finalScore: final,
+      mlPrediction,
+    });
+
+    valuation = adjustEstimatedValue({
+      rawEstimatedValueUsd: marketData.estimatedValueUsd,
+      mlEstimatedValueUsd: mlPrediction?.predictedValueUsd ?? null,
+      tld: rule.tld,
+      score: final,
+      investmentScore,
+      brandPrestigeScore,
+      marketScore,
+      riskLevel: getRiskFromScore(final),
+      availabilityStatus: availability,
+      resaleStatus: marketplace?.resaleStatus ?? "unknown",
+      premiumSignal: marketData.premiumSignal,
+      comparableSalesCount: marketData.comparableSalesCount,
+      domainLength: rule.name.replace(/\./g, "").length,
+      lowQualitySignal: hasLowQualityMlShape(mlPrediction),
+    });
+
+    let aiAdjustedEstimatedValueUsd = applyAdvisoryValueAdjustment(
       valuation.adjustedEstimatedValueUsd,
       openaiInsights,
     );
+
+    if (final < 40) {
+      aiAdjustedEstimatedValueUsd = Math.min(
+        aiAdjustedEstimatedValueUsd,
+        Math.max(180, valuation.tldMarketAnchorUsd * 0.24),
+      );
+    } else if (final < 55) {
+      aiAdjustedEstimatedValueUsd = Math.min(
+        aiAdjustedEstimatedValueUsd,
+        Math.max(320, valuation.tldMarketAnchorUsd * 0.4),
+      );
+    }
 
     const investmentReport = generateInvestmentReport({
       domain: rule.domain,
@@ -336,7 +555,12 @@ export async function POST(request: Request) {
       comparableSalesCount: marketData.comparableSalesCount,
       rdap,
       breakdown: rule.breakdown,
-      verdict: getVerdictFromScore(final),
+      verdict: getRealityCheckedVerdict({
+        score: final,
+        aiInsights: openaiInsights,
+        marketData,
+        tld: rule.tld,
+      }),
       riskLevel: getRiskFromScore(final),
       reasons: rule.reasons,
       weaknesses: rule.weaknesses,

@@ -8,6 +8,7 @@ if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestRegressor
@@ -32,17 +33,27 @@ NUMERIC_FEATURES = [
     "contains_hyphen",
     "premium_keyword_count",
     "estimated_brandability_score",
+    "tld_tier_score",
+    "vowel_ratio",
+    "unique_char_ratio",
+    "starts_with_premium_keyword",
+    "ends_with_premium_keyword",
+    "exact_match_bias",
+    "pronounceability_score",
+    "short_premium_signal",
+    "token_balance_score",
+    "repeated_char_penalty",
 ]
 
-CATEGORICAL_FEATURES = ["tld"]
+CATEGORICAL_FEATURES = ["tld", "category_hint"]
 
 
-def detect_separator(path: Path) -> str:
+def infer_separator(path: Path) -> str:
     return "\t" if path.suffix.lower() == ".tsv" else ","
 
 
 def read_raw_file(path: Path) -> pd.DataFrame | None:
-    separator = detect_separator(path)
+    separator = infer_separator(path)
     try:
         df = pd.read_csv(path, sep=separator)
     except Exception:
@@ -130,9 +141,8 @@ def load_training_dataset(raw_data_dir: Path = RAW_DATA_DIR) -> pd.DataFrame:
 
 
 def prepare_training_frame(dataset: pd.DataFrame) -> pd.DataFrame:
-    feature_frame = build_feature_frame(dataset[DOMAIN_COLUMN])
-    feature_frame = feature_frame.drop(columns=["domain"])
-    prepared = pd.concat([dataset.reset_index(drop=True), feature_frame], axis=1)
+    features = build_feature_frame(dataset[DOMAIN_COLUMN]).drop(columns=["domain"])
+    prepared = pd.concat([dataset.reset_index(drop=True), features], axis=1)
 
     if "tld_hint" in prepared.columns:
         prepared["tld"] = prepared["tld_hint"].where(
@@ -192,9 +202,11 @@ def build_training_pipeline() -> Pipeline:
     )
 
     regressor = RandomForestRegressor(
-        n_estimators=300,
+        n_estimators=500,
         max_depth=None,
-        min_samples_leaf=2,
+        min_samples_leaf=1,
+        min_samples_split=4,
+        max_features="sqrt",
         random_state=42,
         n_jobs=-1,
     )
@@ -213,18 +225,39 @@ def train_model(raw_data_dir: Path = RAW_DATA_DIR, model_path: Path = MODEL_PATH
 
     X = prepared[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
     y = prepared[TARGET_COLUMN].astype(float)
+    y_log = np.log1p(y)
 
-    X_train, X_test, y_train, y_test = train_test_split(
+    sample_weights = np.ones(len(prepared), dtype=float)
+    sample_weights += (prepared["estimated_brandability_score"] >= 75).astype(float) * 0.55
+    sample_weights += (prepared["pronounceability_score"] >= 72).astype(float) * 0.35
+    sample_weights += (prepared["short_premium_signal"] == 1).astype(float) * 0.8
+    sample_weights += (prepared["tld"] == ".com").astype(float) * 0.25
+    sample_weights += (prepared["premium_keyword_count"] == 0).astype(float) * 0.15
+
+    (
+        X_train,
+        X_test,
+        y_train_log,
+        _y_test_log,
+        y_train,
+        y_test,
+        weight_train,
+        _weight_test,
+    ) = train_test_split(
         X,
+        y_log,
         y,
+        sample_weights,
         test_size=0.2,
         random_state=42,
     )
 
     pipeline = build_training_pipeline()
-    pipeline.fit(X_train, y_train)
+    pipeline.fit(X_train, y_train_log, regressor__sample_weight=weight_train)
 
-    predictions = pipeline.predict(X_test)
+    predictions_log = pipeline.predict(X_test)
+    predictions = np.expm1(predictions_log)
+    predictions = np.maximum(predictions, 0.0)
     mae = float(mean_absolute_error(y_test, predictions))
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -233,6 +266,7 @@ def train_model(raw_data_dir: Path = RAW_DATA_DIR, model_path: Path = MODEL_PATH
         "mae": mae,
         "training_rows": int(len(prepared)),
         "feature_columns": NUMERIC_FEATURES + CATEGORICAL_FEATURES,
+        "target_transform": "log1p",
     }
     joblib.dump(bundle, model_path)
 

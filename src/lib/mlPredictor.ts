@@ -16,6 +16,17 @@ export type MlPredictionResult = {
     containsHyphen: number;
     premiumKeywordCount: number;
     estimatedBrandabilityScore: number;
+    tldTierScore: number;
+    vowelRatio: number;
+    uniqueCharRatio: number;
+    startsWithPremiumKeyword: number;
+    endsWithPremiumKeyword: number;
+    exactMatchBias: number;
+    pronounceabilityScore: number;
+    shortPremiumSignal: number;
+    tokenBalanceScore: number;
+    repeatedCharPenalty: number;
+    categoryHint: string;
   };
 };
 
