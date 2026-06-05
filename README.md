@@ -1,348 +1,249 @@
-# Domain Flip
+# DomainFlip AI
 
-A domain valuation and market intelligence platform. Analyze domain names with rule-based scoring, detect resale listings, track availability, and identify market opportunities.
+DomainFlip AI is a domain research workspace for people who want more than a quick appraisal number.
 
-## Features
+The app combines deterministic scoring, a local ML model, comparable sales from CSV datasets, RDAP ownership data, and AI-assisted summaries into one analysis flow. The goal is not to promise profit. The goal is to help someone make a more disciplined buy, watch, or avoid decision.
 
-### 1. Domain Analyzer
-- **Rule-based scoring**: Evaluates domains across 10+ scoring categories:
-  - TLD strength (`.com`, `.ai`, `.io`, `.dev`, etc.)
-  - Name length and character composition
-  - Brandability, memorability, pronounceability
-  - Commercial intent and trend relevance
-  - Premium brand signal detection
-  - Registration history and risk penalties
+## What the product does
 
-- **Real-time RDAP lookup**: Checks registration status, registrar, creation date, expiry, and RDAP status flags
-- **Mock market data**: Deterministic pricing signals based on domain characteristics (comparable sales, estimated value, market demand)
-- **Score blending**: Combines rule-based score (60%) and market signals (40%) to produce final score (0-100)
-- **Intelligent capping**: Applies domain-specific caps to ensure realistic valuations:
-  - Available domains: capped at 78
-  - No comparables + no premium signal: capped at 72
-  - Weak TLDs: capped at 65
-  - Hyphens/numbers without strong market: capped at 60
-  - Premium signal: floor of 85
+### Analyze domains
+- Normalizes and validates a domain input
+- Scores it across brandability, TLD strength, memorability, commercial intent, and risk
+- Pulls RDAP metadata such as registrar, creation date, expiry, and status flags
+- Detects resale posture and marketplace hints
+- Blends ML output, comparable sales, and TLD benchmarks into a value estimate
+- Generates an investment report with reasons to buy, reasons to avoid, and acquisition guidance
 
-### 2. Aftermarket Resale Detection
-- **Bot protection detection**: Identifies Cloudflare, CAPTCHA, and verification screens
-- **Marketplace keyword matching**: Detects listings on Sedo, Afternic, Dan.com, GoDaddy, HugeDomains, Flippa
-- **Confidence levels**: high, medium, low based on detection strength
-- **Resale status types**:
-  - `not_listed` — available or unlisted
-  - `listed_for_sale` — confirmed marketplace listing
-  - `possibly_listed` — marketplace indicator but no confirmation
-  - `needs_verification` — bot protection blocks detection
-  - `unknown` — lookup failed
-- **Marketplace verification links**: Quick links to check status on major marketplaces
+### Compare and battle-test names
+- Compare two domains side by side
+- Run a 3-5 domain battle mode for liquidity, brand strength, and acquisition posture
 
-### 3. Market Insights Landing Page
-- **Statistics cards**: Quick stats on popular TLDs (`.com`, `.ai`, `.io`, `.dev`)
-- **TLD comparison table**: Strength ratings and example domains
-- **"What makes a domain valuable?"** section explaining key value drivers
-- **Heuristic note**: Transparent about limitations of pricing estimates
+### Track watchlist candidates
+- Save domains to a Clerk-authenticated Convex-backed watchlist
+- Recheck individual names or recheck the full watchlist
+- Store target buy price, budget, and negotiation stance per domain
 
-### 4. Domain Watchlist
-- **localStorage-based persistence**: MVP storage without database
-- **Track taken domains**: Add domains for monitoring over time
-- **Manual recheck**: Refresh status, availability, and resale information on demand
-- **Bulk recheck**: "Recheck all" button to update multiple domains at once
-- **Rich item data**: Score, availability, resale status, estimated value, registrar, expiry date, timestamps
-- **Future notification system**: Planned architecture for automated daily checks and email alerts:
-  - Watchlist stored in database
-  - Cron job runs daily
-  - RDAP/marketplace checks for changes
-  - Email alerts on availability or expiry status changes
+### Explore the market dataset
+- Browse historical sales from local CSV data
+- Filter by TLD, category, search term, and price range
+- Compare TLD performance
+- Review anomaly flags and dataset-backed trend snapshots
+- Save market screens for quick revisit
 
-## Getting Started
+### Use the assistant
+- Ask grounded domain questions
+- Generate domain ideas from budget, keywords, style, and TLD preferences
+- Pull an AI perspective alongside the platform’s scoring and ML layers
 
-### Prerequisites
-- Node.js 18+
-- npm, yarn, pnpm, or bun
+## Product surfaces
 
-### Installation
+- `/` — landing page
+- `/analyze` — primary analysis workflow
+- `/market` — market intelligence workspace
+- `/assistant` — AI idea generation and chat
+- `/watchlist` — protected watchlist and portfolio monitor
 
-```bash
-# Clone the repository
-cd domain-flip
+## How pricing works
 
-# Install dependencies
-npm install
-# or
-pnpm install
+Pricing is intentionally not based on one signal.
+
+The current valuation stack blends:
+- local ML prediction from historical sales data
+- nearest comparable sales from the merged dataset
+- curated TLD benchmark anchors
+- rule-based quality signals
+- AI helper signals for premium feel, end-user demand, and aftermarket strength
+
+In weak-evidence cases, the benchmark influence is reduced so available, low-conviction names do not inherit unrealistic values just because a strong TLD has expensive historical outliers.
+
+Investment-facing UI currently shows values in INR for readability. The market dataset itself remains USD-backed because the source sales records are in USD.
+
+## Tech stack
+
+- Next.js 16 App Router
+- TypeScript
+- Tailwind CSS
+- Recharts
+- Clerk
+- Convex
+- Python
+- pandas
+- scikit-learn
+- joblib
+- OpenAI API
+- Gemini API
+
+## Project structure
+
+```text
+src/
+  app/
+    api/
+      analyze/route.ts
+      assistant/route.ts
+    analyze/page.tsx
+    assistant/page.tsx
+    market/page.tsx
+    watchlist/page.tsx
+  components/
+    market/
+  lib/
+    domainAnalyzer.ts
+    marketData.ts
+    mlPredictor.ts
+    openaiDomainAdvisor.ts
+    rdap.ts
+    valueProjection.ts
+
+convex/
+ml/
+data/
+  raw/
+  processed/
 ```
 
-### Running the Development Server
+## Local data and ML
+
+Historical sales CSVs live in:
+
+```text
+data/raw/
+```
+
+Processed merged data lives in:
+
+```text
+data/processed/
+```
+
+The ML pipeline lives in:
+
+```text
+ml/features.py
+ml/train.py
+ml/model.py
+ml/predict.py
+```
+
+### ML flow
+
+1. Raw CSVs are merged and normalized
+2. Domain features are extracted
+3. A `RandomForestRegressor` is trained on `price_usd`
+4. The trained bundle is saved to `ml/domain_value_model.pkl`
+5. The Next.js API route calls Python for inference through `src/lib/mlPredictor.ts`
+
+## Environment variables
+
+At minimum, you will usually need:
+
+```env
+NEXT_PUBLIC_CONVEX_URL=
+CLERK_FRONTEND_API_URL=
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+DOMAIN_ML_PYTHON=
+```
+
+Depending on your Clerk setup, you may also need the usual Clerk public and secret keys for the Next.js app.
+
+## Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the app:
 
 ```bash
 npm run dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Building for Production
+Run Convex in another terminal:
 
 ```bash
-npm run build
-npm run start
+npx convex dev
 ```
 
-## Architecture
+Open:
 
-### Tech Stack
-- **Frontend**: Next.js 15 (app router), TypeScript, Tailwind CSS
-- **Backend**: Next.js API routes (Node.js serverless)
-- **Data**: localStorage for MVP watchlist persistence
-- **External APIs**: RDAP (ICANN domain registration data)
-
-### File Structure
-
-```
-src/
-├── app/
-│   ├── page.tsx               # Landing page with Market Insights
-│   ├── analyze/
-│   │   └── page.tsx           # Domain analyzer UI
-│   ├── watchlist/
-│   │   └── page.tsx           # Domain watchlist page
-│   ├── api/
-│   │   └── analyze/
-│   │       └── route.ts       # Domain analysis API endpoint
-│   ├── layout.tsx             # Root layout with Navbar/Footer
-│   └── globals.css            # Global styles and tokens
-├── components/
-│   ├── Navbar.tsx             # Navigation header
-│   └── Footer.tsx             # Footer with links
-└── lib/
-    ├── domainAnalyzer.ts      # Rule-based scoring logic
-    ├── domainMarketplace.ts   # Resale detection and marketplace links
-    ├── mockMarketData.ts      # Deterministic market data generator
-    ├── domainAvailability.ts  # Mock availability helper
-    ├── watchlist.ts           # localStorage watchlist utilities
-    └── rdap.ts                # RDAP lookup client
+```text
+http://localhost:3000
 ```
 
-## API Endpoints
+## Training the model
 
-### POST /api/analyze
-Analyzes a domain and returns a comprehensive scoring report.
+Create a virtual environment if you do not already have one:
 
-**Request:**
-```json
-{
-  "domain": "example.com"
-}
+```bash
+python3 -m venv .venv
 ```
 
-**Response:**
-```json
-{
-  "domain": "example.com",
-  "name": "example",
-  "tld": "com",
-  "score": 78,
-  "ruleScore": 80,
-  "marketScore": 75,
-  "availabilityStatus": "Taken",
-  "estimatedValueUsd": 5000,
-  "comparableSalesCount": 8,
-  "resaleStatus": "possibly_listed",
-  "detectedMarketplace": "Sedo",
-  # Domain Flip
+Install Python dependencies:
 
-  Domain Flip is a domain intelligence workspace for valuation, resale detection, availability checks, and watchlist tracking.
+```bash
+./.venv/bin/pip install pandas scikit-learn joblib
+```
 
-  The app now uses a DomainTools-inspired editorial UI: light gray surfaces, strong black borders, lime highlights, and periwinkle CTAs.
+Train the model:
 
-  ## What it does
+```bash
+./.venv/bin/python ml/train.py
+```
 
-  ### Domain analysis
-  - Rule-based scoring across 10+ categories
-  - RDAP lookup for registrar, creation date, expiry, and status flags
-  - Market signal blending from deterministic mock data
-  - Comparisons between two domains
-  - A breakdown of what raised or lowered the score
+Quick prediction check:
 
-  ### Valuation realism
-  - TLD market weight system to keep .com, .ai, .io, .co, and ccTLDs in realistic ranges
-  - Liquidity adjustment so stronger extensions remain easier to resell
-  - Sanity checks that prevent weak ccTLDs from outranking stronger .com names without support
-  - Both raw appraisals and adjusted market estimates are exposed in the API and UI
+```bash
+./.venv/bin/python ml/predict.py primeagent.ai
+```
 
-  ### Resale detection
-  - Detects aftermarket signals on landing pages
-  - Identifies bot protection, marketplace keywords, and listing hints
-  - Returns confidence levels: high, medium, low
-  - Provides verification links for major marketplaces
+If your Python binary is not at `.venv/bin/python`, set:
 
-  ### Watchlist
-  - localStorage-backed watchlist for the MVP
-  - Add taken domains from the analyzer
-  - Recheck one item or all items at once
-  - Stores score, estimated value, registrar, expiry, and timestamps
+```env
+DOMAIN_ML_PYTHON=/absolute/path/to/python
+```
 
-  ### Landing page
-  - Market insights section
-  - TLD benchmark cards
-  - Lifecycle workflow blocks
-  - Clean, data-heavy layout with a technical editorial feel
+## Notes on AI integrations
 
-  ## Stack
+OpenAI and Gemini are both optional enhancement layers.
 
-  - Next.js 16 App Router
-  - TypeScript
-  - Tailwind CSS
-  - Recharts
-  - Serverless API route for analysis
-  - RDAP lookups via public domain data sources
+If API keys are missing or rejected:
+- the app still works
+- deterministic fallbacks are used
+- the UI should still remain usable
 
-  ## Main routes
+That fallback behavior is intentional so the product can still demo even when external AI providers are unavailable.
 
-  - / — landing page with market insights
-  - /analyze — analyzer and comparison workspace
-  - /watchlist — tracked domains board
-  - /api/analyze — analysis endpoint
+## Current product posture
 
-  ## Analysis pipeline
+This repository is an MVP with a serious research workflow, not a claim of perfect appraisal accuracy.
 
-  The analysis route normalizes a domain, then combines:
+What is already strong:
+- multi-signal scoring
+- RDAP lookup
+- watchlist persistence
+- market dataset browsing
+- comparable sales on analysis
+- ML-assisted valuation
+- AI-assisted summaries and idea generation
 
-  1. Rule-based scoring
-  2. Mock market data
-  3. RDAP data
-  4. Resale detection
-  5. TLD-weighted valuation adjustment
+What still needs iteration:
+- pricing calibration for edge cases
+- stronger comparable-sales weighting
+- more grounded aftermarket signals
+- better handling of true elite one-word domains
 
-  The final response includes:
+## Why the repo looks the way it does
 
-  - score
-  - ruleScore
-  - marketScore
-  - investmentScore
-  - estimatedValueUsd
-  - tldMarketAnchorUsd
-  - adjustedEstimatedValueUsd
-  - liquidityScore
-  - verdict
-  - riskLevel
-  - reasons
-  - weaknesses
-  - breakdown
-  - RDAP metadata
-  - resale status and marketplace links
-  - investment report and value projection
+This project was built under deadline pressure, so some parts are intentionally pragmatic:
+- the product uses heuristics where live commercial data is not available
+- the ML model is a practical baseline, not the final model
+- AI APIs are used as helpers, not as the single source of truth
 
-  ## Scoring model
+The direction is clear though: more evidence, better comps, cleaner ranking, and tighter confidence reporting.
 
-  The analyzer evaluates domains using categories such as:
+## License
 
-  - TLD strength
-  - Length
-  - Brandability
-  - Memorability
-  - Pronounceability
-  - Premium brand signal
-  - Trend relevance
-  - Commercial intent
-  - Registration history
-  - Risk penalties
-
-  The final score is blended from rule-based and market-based signals, then capped or normalized when the name looks unrealistic.
-
-  ## Watchlist schema
-
-  ```ts
-  {
-    domain: string;
-    score: number;
-    availabilityStatus: "Available" | "Taken" | "Unknown";
-    resaleStatus?: "not_listed" | "listed_for_sale" | "possibly_listed" | "needs_verification" | "unknown";
-    estimatedValueUsd?: number | null;
-    registrar?: string | null;
-    expiresAt?: string | null;
-    addedAt: string;
-    lastCheckedAt: string;
-  }
-  ```
-
-  ## Project structure
-
-  ```text
-  src/
-  ├── app/
-  │   ├── page.tsx
-  │   ├── analyze/page.tsx
-  │   ├── watchlist/page.tsx
-  │   ├── api/analyze/route.ts
-  │   └── globals.css
-  ├── components/
-  │   ├── Navbar.tsx
-  │   ├── Footer.tsx
-  │   ├── DomainComparisonChart.tsx
-  │   └── ValueProjectionChart.tsx
-  └── lib/
-      ├── domainAnalyzer.ts
-      ├── domainMarketplace.ts
-      ├── domainAvailability.ts
-      ├── mockMarketData.ts
-      ├── rdap.ts
-      ├── watchlist.ts
-      ├── investmentReport.ts
-      └── valueProjection.ts
-  ```
-
-  ## Scripts
-
-  ```bash
-  pnpm dev
-  pnpm build
-  pnpm start
-  pnpm lint
-  ```
-
-   ## Authentication (Clerk)
-
-   DomainFlip AI uses [Clerk](https://clerk.com) for authentication. The `/watchlist` route is protected and requires sign-in, while `/` and `/analyze` routes remain public.
-
-   ### Setup
-
-   1. Create a [Clerk account](https://dashboard.clerk.com) and a new application
-   2. Copy your **Publishable Key** and **Secret Key** from the Clerk Dashboard
-   3. Create a `.env.local` file in the project root and add:
-     ```
-     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
-     CLERK_SECRET_KEY=your_secret_key
-     ```
-   4. Run `pnpm dev` and the auth UI will be ready
-
-   Users can sign in/sign up via `/sign-in` and `/sign-up`, and will see a user profile button in the navbar when authenticated.
-
-  ## Getting started
-
-  ```bash
-  pnpm install
-  pnpm dev
-  ```
-
-  Then open http://localhost:3000.
-
-  ## Design system
-
-  - Background: #ECECEA
-  - Cards: #F3F3F1
-  - Text: #111111
-  - Borders: strong black, 2px
-  - Accent lime: #B8FF2C
-  - CTA purple: #7385F6
-
-  ## Notes
-
-  - This is an MVP.
-  - Market data is heuristic.
-  - Watchlist persistence currently uses localStorage.
-  - The project is structured so a database and cron-based alerts can be added later.
-
-  ## License
-
-  MIT
+Add the license you want before publishing the repo publicly.

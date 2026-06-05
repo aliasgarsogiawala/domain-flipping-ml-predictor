@@ -27,10 +27,19 @@ type ApiResult = {
   marketScore: number;
   availabilityStatus: "Available" | "Taken" | "Unknown";
   estimatedValueUsd: number;
+  mlPredictedValueUsd: number | null;
+  mlPredictionConfidence: "Low" | "Medium" | "High" | null;
   modelAdjustedEstimatedValueUsd: number;
   tldMarketAnchorUsd: number;
   adjustedEstimatedValueUsd: number;
   liquidityScore: number;
+  valuationBasis: {
+    pricingConfidence: "Low" | "Medium" | "High";
+    comparableSalesUsed: number;
+    comparableMedianUsd: number | null;
+    comparableWeightedMedianUsd: number | null;
+    averageComparableSimilarity: number | null;
+  };
   verdict: "Low Potential" | "Moderate Potential" | "High Potential" | "Premium Potential";
   riskLevel: "Low" | "Medium" | "High";
   reasons: string[];
@@ -115,6 +124,12 @@ function badgeForRisk(value: ApiResult["riskLevel"]) {
 }
 
 function badgeForAiConfidence(value: OpenAIDomainInsights["confidence"]) {
+  if (value === "High") return "bg-[var(--lime)] text-black border-black";
+  if (value === "Medium") return "bg-[var(--purple-bar)] text-black border-black";
+  return "bg-white text-black border-black";
+}
+
+function badgeForPricingConfidence(value: ApiResult["valuationBasis"]["pricingConfidence"]) {
   if (value === "High") return "bg-[var(--lime)] text-black border-black";
   if (value === "Medium") return "bg-[var(--purple-bar)] text-black border-black";
   return "bg-white text-black border-black";
@@ -554,7 +569,7 @@ export default function AnalyzePage() {
                 <StatCard
                   label="Estimated Value"
                   value={formatInrFromUsd(result.adjustedEstimatedValueUsd)}
-                  subtext="Adjusted estimate"
+                  subtext={`Pricing confidence: ${result.valuationBasis.pricingConfidence}`}
                   mono
                 />
                 <StatCard label="Availability" value={result.availabilityStatus} subtext="RDAP-backed where available" />
@@ -873,15 +888,42 @@ export default function AnalyzePage() {
               </SectionCard>
 
               <SectionCard eyebrow="Valuation Layer" title="Benchmark normalized estimates">
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForPricingConfidence(result.valuationBasis.pricingConfidence)}`}>
+                    Pricing confidence: {result.valuationBasis.pricingConfidence}
+                  </span>
+                  <span className="inline-flex rounded-full border border-black bg-white px-3 py-1 text-sm font-semibold text-black">
+                    {result.valuationBasis.comparableSalesUsed} comparable
+                    {result.valuationBasis.comparableSalesUsed === 1 ? "" : "s"}
+                  </span>
+                  {result.valuationBasis.averageComparableSimilarity ? (
+                    <span className="inline-flex rounded-full border border-black bg-white px-3 py-1 text-sm font-semibold text-black">
+                      Avg similarity {result.valuationBasis.averageComparableSimilarity}/100
+                    </span>
+                  ) : null}
+                </div>
+
                 <div className="grid gap-3">
                   <DetailRow label="Raw appraisal signal" value={formatInrFromUsd(result.estimatedValueUsd)} mono />
+                  <DetailRow label="ML baseline" value={formatInrFromUsd(result.mlPredictedValueUsd)} mono />
+                  <DetailRow label="ML confidence" value={result.mlPredictionConfidence ?? "Not available"} />
                   <DetailRow label="Model-adjusted value" value={formatInrFromUsd(result.modelAdjustedEstimatedValueUsd)} mono />
                   <DetailRow label="AI-adjusted value" value={formatInrFromUsd(result.adjustedEstimatedValueUsd)} mono />
+                  <DetailRow
+                    label="Comparable median"
+                    value={formatInrFromUsd(result.valuationBasis.comparableMedianUsd)}
+                    mono
+                  />
+                  <DetailRow
+                    label="Weighted comparable median"
+                    value={formatInrFromUsd(result.valuationBasis.comparableWeightedMedianUsd)}
+                    mono
+                  />
                   <DetailRow label="TLD market benchmark" value={formatInrFromUsd(result.tldMarketAnchorUsd)} mono />
                   <DetailRow label="Liquidity score" value={`${result.liquidityScore}`} mono />
                 </div>
                 <p className="mt-4 text-sm leading-7 text-slate-700">
-                  Based on recent historical sales references. OpenAI can apply a modest advisory adjustment, but the deterministic pricing layer remains the primary anchor.
+                  Final value now leans on three evidence layers: the ML baseline, the nearest observed comparable sales, and the TLD benchmark. When comparable support is weak, the benchmark influence is intentionally reduced so low-conviction names stay conservative.
                 </p>
               </SectionCard>
 

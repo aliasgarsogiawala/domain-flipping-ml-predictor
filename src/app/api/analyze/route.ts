@@ -41,9 +41,111 @@ function getTldAnchor(tld: string): TldMarketAnchor {
   return anchor ?? DEFAULT_TLD_ANCHOR;
 }
 
+type ComparableSalesSummary = {
+  count: number;
+  averageSimilarity: number;
+  medianSaleUsd: number | null;
+  weightedMedianSaleUsd: number | null;
+  strongestSaleUsd: number | null;
+};
+
+function computeMedian(values: number[]) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 0) {
+    return Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+  }
+
+  return Math.round(sorted[middle]);
+}
+
+function computeWeightedMedian(items: Array<{ value: number; weight: number }>) {
+  if (items.length === 0) return null;
+
+  const sorted = [...items].sort((left, right) => left.value - right.value);
+  const totalWeight = sorted.reduce((sum, item) => sum + item.weight, 0);
+  let runningWeight = 0;
+
+  for (const item of sorted) {
+    runningWeight += item.weight;
+    if (runningWeight >= totalWeight / 2) {
+      return Math.round(item.value);
+    }
+  }
+
+  return Math.round(sorted.at(-1)?.value ?? 0);
+}
+
+function summarizeComparableSales(comparableSales: Awaited<ReturnType<typeof findComparableSales>>) {
+  if (comparableSales.length === 0) {
+    return {
+      count: 0,
+      averageSimilarity: 0,
+      medianSaleUsd: null,
+      weightedMedianSaleUsd: null,
+      strongestSaleUsd: null,
+    } satisfies ComparableSalesSummary;
+  }
+
+  const prices = comparableSales.map((record) => record.salePriceUsd);
+  const weightedMedianSaleUsd = computeWeightedMedian(
+    comparableSales.map((record) => ({
+      value: record.salePriceUsd,
+      weight: clamp(record.similarityScore / 100, 0.3, 0.95),
+    })),
+  );
+
+  return {
+    count: comparableSales.length,
+    averageSimilarity: Math.round(
+      comparableSales.reduce((sum, record) => sum + record.similarityScore, 0) /
+        comparableSales.length,
+    ),
+    medianSaleUsd: computeMedian(prices),
+    weightedMedianSaleUsd,
+    strongestSaleUsd: Math.max(...prices),
+  } satisfies ComparableSalesSummary;
+}
+
+function getMlConfidenceWeight(
+  confidence: Awaited<ReturnType<typeof predictDomainValueWithMl>>["confidence"] | null | undefined,
+) {
+  if (confidence === "High") return 0.62;
+  if (confidence === "Medium") return 0.48;
+  return 0.34;
+}
+
+function getPricingConfidence(params: {
+  mlConfidence: Awaited<ReturnType<typeof predictDomainValueWithMl>>["confidence"] | null | undefined;
+  comparableSales: ComparableSalesSummary;
+  score: number;
+  availabilityStatus: "Available" | "Taken" | "Unknown";
+}) {
+  if (
+    params.mlConfidence === "High" &&
+    params.comparableSales.count >= 3 &&
+    params.comparableSales.averageSimilarity >= 56
+  ) {
+    return "High" as const;
+  }
+
+  if (
+    params.mlConfidence === "Medium" ||
+    params.comparableSales.count >= 2 ||
+    (params.score >= 72 && params.availabilityStatus !== "Unknown")
+  ) {
+    return "Medium" as const;
+  }
+
+  return "Low" as const;
+}
+
 function adjustEstimatedValue(params: {
   rawEstimatedValueUsd: number;
   mlEstimatedValueUsd?: number | null;
+  mlPredictionConfidence?: Awaited<ReturnType<typeof predictDomainValueWithMl>>["confidence"] | null;
   tld: string;
   score: number;
   investmentScore: number;
@@ -54,54 +156,135 @@ function adjustEstimatedValue(params: {
   resaleStatus: string;
   premiumSignal: boolean;
   comparableSalesCount: number;
+  comparableSalesSummary: ComparableSalesSummary;
   domainLength: number;
   lowQualitySignal?: boolean;
 }) {
   const anchor = getTldAnchor(params.tld);
   const raw = params.rawEstimatedValueUsd;
-  const baseEstimate =
-    params.mlEstimatedValueUsd && params.mlEstimatedValueUsd > 0
-      ? raw * 0.35 + params.mlEstimatedValueUsd * 0.65
-      : raw;
   const qualityBlend =
     params.score * 0.32 +
     params.investmentScore * 0.26 +
     params.brandPrestigeScore * 0.22 +
     params.marketScore * 0.2;
+  const mlBaseline =
+    params.mlEstimatedValueUsd && params.mlEstimatedValueUsd > 0 ? params.mlEstimatedValueUsd : null;
+  const qualityIndex = clamp(qualityBlend / 100, 0.18, 1);
+  const comparableEvidence =
+    params.comparableSalesSummary.count === 0
+      ? 0
+      : clamp(
+          params.comparableSalesSummary.count * 0.16 +
+            params.comparableSalesSummary.averageSimilarity / 140,
+          0.12,
+          0.78,
+        );
 
-  let qualityFactor = 0.55 + qualityBlend / 180;
-  if (params.domainLength <= 8) qualityFactor += 0.08;
-  else if (params.domainLength >= 14) qualityFactor -= 0.07;
-  if (params.premiumSignal) qualityFactor += 0.15;
-  if (params.comparableSalesCount >= 3) qualityFactor += 0.08;
-  if (params.riskLevel === "High") qualityFactor -= 0.12;
-  else if (params.riskLevel === "Medium") qualityFactor -= 0.05;
-  if (params.resaleStatus === "needs_verification") qualityFactor -= 0.08;
-  if (params.availabilityStatus === "Unknown") qualityFactor -= 0.04;
+  let anchorExposure =
+    0.02 +
+    params.score / 220 +
+    params.marketScore / 420 +
+    params.brandPrestigeScore / 460 +
+    comparableEvidence * 0.24;
 
-  qualityFactor = clamp(qualityFactor, 0.35, 1.3);
-
-  const anchorDrivenEstimate =
-    anchor.medianVisibleSaleUsd * qualityFactor * anchor.resaleMultiplier;
-
-  // Treat external and ML estimates as one pricing signal, not the dominant answer.
-  let adjusted = baseEstimate * 0.35 + anchorDrivenEstimate * 0.65;
-
-  const liquidityCap = anchor.medianVisibleSaleUsd * (0.55 + anchor.liquidityScore / 90);
-  const floor =
-    params.score >= 80
-      ? anchor.medianVisibleSaleUsd * 0.18
-      : params.score >= 65
-        ? anchor.medianVisibleSaleUsd * 0.08
-        : params.score >= 50
-          ? anchor.medianVisibleSaleUsd * 0.035
-          : 20;
-
-  adjusted = clamp(adjusted, floor, liquidityCap);
-
-  if (anchor.liquidityScore < 45) {
-    adjusted = Math.min(adjusted, anchor.medianVisibleSaleUsd * 1.45);
+  if (params.premiumSignal) anchorExposure += 0.06;
+  if (params.domainLength <= 8) anchorExposure += 0.04;
+  else if (params.domainLength >= 14) anchorExposure -= 0.05;
+  if (params.riskLevel === "High") anchorExposure -= 0.11;
+  else if (params.riskLevel === "Medium") anchorExposure -= 0.05;
+  if (params.resaleStatus === "needs_verification") anchorExposure -= 0.05;
+  if (params.availabilityStatus === "Available" && params.comparableSalesCount <= 1) {
+    anchorExposure -= 0.14;
   }
+  if (params.tld === "in" && params.availabilityStatus !== "Taken") {
+    anchorExposure -= 0.08;
+  }
+  if (params.lowQualitySignal) {
+    anchorExposure -= 0.14;
+  }
+
+  anchorExposure = clamp(anchorExposure, 0.015, 0.92);
+
+  const anchorDrivenEstimate = anchor.medianVisibleSaleUsd * anchor.resaleMultiplier * anchorExposure;
+  const comparableReference =
+    params.comparableSalesSummary.weightedMedianSaleUsd ??
+    params.comparableSalesSummary.medianSaleUsd;
+
+  let comparableQualityShare =
+    0.12 +
+    qualityIndex * 0.52 +
+    params.brandPrestigeScore / 280 +
+    params.marketScore / 340;
+
+  if (params.availabilityStatus === "Available" && params.comparableSalesCount <= 1) {
+    comparableQualityShare -= 0.18;
+  }
+  if (params.riskLevel === "High") comparableQualityShare -= 0.12;
+  if (params.lowQualitySignal) comparableQualityShare -= 0.16;
+  if (params.tld !== "com" && params.comparableSalesCount < 3) comparableQualityShare -= 0.1;
+
+  comparableQualityShare = clamp(comparableQualityShare, 0.08, 0.94);
+
+  const comparableDrivenEstimate = comparableReference
+    ? comparableReference * comparableQualityShare
+    : null;
+
+  const mlWeight = mlBaseline ? getMlConfidenceWeight(params.mlPredictionConfidence) : 0;
+  const comparableWeight = comparableDrivenEstimate ? comparableEvidence : 0;
+  const anchorWeight = anchorExposure * 0.5;
+  const heuristicWeight = 0.18;
+  const totalWeight = mlWeight + comparableWeight + anchorWeight + heuristicWeight;
+
+  let adjusted =
+    ((mlBaseline ?? raw) * mlWeight +
+      (comparableDrivenEstimate ?? 0) * comparableWeight +
+      anchorDrivenEstimate * anchorWeight +
+      raw * heuristicWeight) /
+    totalWeight;
+
+  if (params.availabilityStatus === "Available" && params.comparableSalesCount === 0) {
+    adjusted *= params.tld === "com" ? 0.56 : 0.42;
+  } else if (params.availabilityStatus === "Available" && params.comparableSalesCount === 1) {
+    adjusted *= params.tld === "com" ? 0.72 : 0.58;
+  }
+
+  if (params.lowQualitySignal) adjusted *= 0.62;
+  if (params.score < 40) adjusted *= 0.58;
+  else if (params.score < 50) adjusted *= 0.72;
+  if (params.riskLevel === "High") adjusted *= 0.78;
+  if (params.resaleStatus === "unknown" && params.availabilityStatus !== "Taken") adjusted *= 0.92;
+
+  const floor =
+    mlBaseline && params.score >= 68
+      ? Math.max(25, mlBaseline * 0.42)
+      : params.score >= 80
+        ? anchor.medianVisibleSaleUsd * 0.07
+        : params.score >= 65
+          ? anchor.medianVisibleSaleUsd * 0.03
+          : params.score >= 50
+            ? anchor.medianVisibleSaleUsd * 0.015
+            : 15;
+
+  let softCap =
+    anchor.medianVisibleSaleUsd *
+    clamp(
+      0.08 +
+        params.score / 110 +
+        params.brandPrestigeScore / 230 +
+        params.marketScore / 260 +
+        comparableEvidence * 0.34,
+      0.16,
+      1.18,
+    );
+
+  if (params.availabilityStatus === "Available" && params.comparableSalesCount <= 1) {
+    softCap *= params.tld === "com" ? 0.62 : 0.42;
+  }
+  if (params.tld === "in" && params.availabilityStatus !== "Taken") {
+    softCap *= 0.68;
+  }
+  if (params.lowQualitySignal) softCap *= 0.54;
+  if (params.riskLevel === "High") softCap *= 0.76;
 
   if (params.tld !== "com") {
     const comAnchor = getTldAnchor("com");
@@ -112,36 +295,11 @@ function adjustEstimatedValue(params: {
       params.comparableSalesCount >= 3;
 
     if (!strongSignalGate) {
-      adjusted = Math.min(adjusted, comAnchor.medianVisibleSaleUsd * 0.95);
+      softCap = Math.min(softCap, comAnchor.medianVisibleSaleUsd * 0.82);
     }
   }
 
-  if (params.score < 35) {
-    adjusted = Math.min(adjusted, Math.max(35, anchor.medianVisibleSaleUsd * 0.015));
-  } else if (params.score < 45 && params.riskLevel === "High") {
-    adjusted = Math.min(adjusted, Math.max(55, anchor.medianVisibleSaleUsd * 0.025));
-  }
-
-  if (params.lowQualitySignal) {
-    adjusted = Math.min(adjusted, Math.max(45, anchor.medianVisibleSaleUsd * 0.02));
-  }
-
-  if (
-    params.availabilityStatus === "Available" &&
-    params.comparableSalesCount <= 1 &&
-    !params.premiumSignal
-  ) {
-    adjusted = Math.min(
-      adjusted,
-      params.tld === "com"
-        ? Math.max(70, anchor.medianVisibleSaleUsd * 0.02)
-        : Math.max(40, anchor.medianVisibleSaleUsd * 0.012),
-    );
-  }
-
-  if (params.tld === "in" && params.availabilityStatus === "Available") {
-    adjusted = Math.min(adjusted, Math.max(45, anchor.medianVisibleSaleUsd * 0.01));
-  }
+  adjusted = clamp(adjusted, floor, Math.max(floor, softCap));
 
   return {
     tldMarketAnchorUsd: anchor.medianVisibleSaleUsd,
@@ -355,28 +513,65 @@ function capAdvisoryAdjustedValue(params: {
   tld: string;
   availabilityStatus: "Available" | "Taken" | "Unknown";
   comparableSalesCount: number;
+  comparableSalesSummary: ComparableSalesSummary;
+  mlPrediction: Awaited<ReturnType<typeof predictDomainValueWithMl>>;
+  anchorUsd: number;
   aiInsights: Awaited<ReturnType<typeof generateOpenAIDomainInsights>>;
 }) {
   let value = params.baseValueUsd;
 
+  const mlBaseline = params.mlPrediction?.predictedValueUsd ?? null;
+  const compReference =
+    params.comparableSalesSummary.weightedMedianSaleUsd ??
+    params.comparableSalesSummary.medianSaleUsd;
+  const aiStrength =
+    params.aiInsights.premiumFeelScore * 0.34 +
+    params.aiInsights.endUserDemandScore * 0.36 +
+    params.aiInsights.aftermarketStrengthScore * 0.3;
+
+  const referenceCeiling = Math.max(
+    30,
+    (mlBaseline ?? 0) * 1.15,
+    (compReference ?? 0) *
+      clamp(
+        0.1 +
+          params.score / 135 +
+          params.aiInsights.premiumFeelScore / 260 +
+          params.aiInsights.aftermarketStrengthScore / 300,
+        0.16,
+        params.verdict === "Premium Potential" ? 1.12 : 0.92,
+      ),
+    params.anchorUsd *
+      clamp(
+        0.015 +
+          params.score / 230 +
+          params.aiInsights.premiumFeelScore / 420 +
+          params.comparableSalesCount * 0.03,
+        0.04,
+        params.verdict === "Premium Potential" ? 1.02 : 0.66,
+      ),
+  );
+
+  let softCeiling = referenceCeiling;
+
   if (params.verdict === "Low Potential") {
-    const strictLowCap =
-      params.availabilityStatus === "Taken" && params.comparableSalesCount >= 2 ? 85 : 60;
-
-    value = Math.min(value, strictLowCap);
-
-    if (
-      params.aiInsights.premiumFeelScore < 40 &&
-      params.aiInsights.endUserDemandScore < 45 &&
-      params.aiInsights.aftermarketStrengthScore < 40
-    ) {
-      value = Math.min(value, 45);
-    }
+    softCeiling *= 0.72;
   } else if (params.verdict === "Moderate Potential") {
-    value = Math.min(value, params.tld === "com" ? 220 : 140);
+    softCeiling *= 0.92;
   } else if (params.verdict === "High Potential") {
-    value = Math.min(value, params.tld === "com" ? 900 : 420);
+    softCeiling *= params.tld === "com" ? 1.02 : 0.88;
   }
+
+  if (params.availabilityStatus === "Available" && params.comparableSalesCount <= 1) {
+    softCeiling *= params.tld === "com" ? 0.7 : 0.52;
+  }
+  if (params.tld === "in" && params.availabilityStatus !== "Taken") {
+    softCeiling *= 0.72;
+  }
+  if (aiStrength < 42) softCeiling *= 0.72;
+  else if (aiStrength < 58) softCeiling *= 0.84;
+
+  value = Math.min(value, softCeiling);
 
   return Math.max(0, Math.round(value));
 }
@@ -396,6 +591,11 @@ export async function POST(request: Request) {
     // Market data & RDAP lookup
     const marketData = getMockMarketData(rule.domain);
     const comparableSales = await findComparableSales(rule.domain, 5);
+    const comparableSalesSummary = summarizeComparableSales(comparableSales);
+    const enrichedMarketData: MockMarketData = {
+      ...marketData,
+      comparableSalesCount: Math.max(marketData.comparableSalesCount, comparableSalesSummary.count),
+    };
     const rdap = await lookupRDAP(rule.domain);
     const mlPrediction = await predictDomainValueWithMl(rule.domain);
     const availability = rdap.availabilityStatus;
@@ -408,7 +608,7 @@ export async function POST(request: Request) {
     // Marketplace/resale detection
     const marketplace = await getMarketplaceStatus(rule.domain);
 
-    const marketScore = await computeMarketScore(marketData);
+    const marketScore = await computeMarketScore(enrichedMarketData);
 
     // Combine scores (blend rule and market)
     let final = Math.round(rule.ruleScore * 0.6 + marketScore * 0.4);
@@ -417,14 +617,14 @@ export async function POST(request: Request) {
     // Important caps and adjustments
     const compactName = rule.name.replace(/\./g, "");
     const hasHyphenOrNumber = /-|\d/.test(compactName);
-    const hasComparables = (marketData.comparableSalesCount ?? 0) > 0;
+    const hasComparables = enrichedMarketData.comparableSalesCount > 0;
     const strongMarket =
-      marketData.premiumSignal ||
-      (marketData.comparableSalesCount ?? 0) >= 4 ||
+      enrichedMarketData.premiumSignal ||
+      enrichedMarketData.comparableSalesCount >= 4 ||
       rule.ruleScore >= 76;
 
     // If no comparables and no premium signal, cap at 72
-    if (!hasComparables && !marketData.premiumSignal) {
+    if (!hasComparables && !enrichedMarketData.premiumSignal) {
       final = Math.min(final, 64);
     }
 
@@ -440,12 +640,12 @@ export async function POST(request: Request) {
     }
 
     // If premium signal allow 85+
-    if (marketData.premiumSignal && rule.ruleScore >= 78 && availability === "Taken") {
+    if (enrichedMarketData.premiumSignal && rule.ruleScore >= 78 && availability === "Taken") {
       final = Math.min(100, final + 4);
     }
 
     // If comparables strong, boost
-    if (marketData.comparableSalesCount >= 5 && rule.ruleScore >= 68) {
+    if (enrichedMarketData.comparableSalesCount >= 5 && rule.ruleScore >= 68) {
       final = Math.min(100, final + 4);
     }
 
@@ -458,11 +658,11 @@ export async function POST(request: Request) {
       final = Math.min(final, Math.max(rule.ruleScore, 66));
     }
 
-    if (availability === "Available" && marketData.comparableSalesCount <= 1) {
+    if (availability === "Available" && enrichedMarketData.comparableSalesCount <= 1) {
       final = Math.min(final, rule.tld === "com" ? 66 : 58);
     }
 
-    if (rule.tld === "in" && availability !== "Taken" && marketData.comparableSalesCount <= 2) {
+    if (rule.tld === "in" && availability !== "Taken" && enrichedMarketData.comparableSalesCount <= 2) {
       final = Math.min(final, 58);
     }
 
@@ -490,8 +690,9 @@ export async function POST(request: Request) {
     let investmentScore = final;
 
     let valuation = adjustEstimatedValue({
-      rawEstimatedValueUsd: marketData.estimatedValueUsd,
+      rawEstimatedValueUsd: enrichedMarketData.estimatedValueUsd,
       mlEstimatedValueUsd: mlPrediction?.predictedValueUsd ?? null,
+      mlPredictionConfidence: mlPrediction?.confidence ?? null,
       tld: rule.tld,
       score: final,
       investmentScore,
@@ -500,8 +701,9 @@ export async function POST(request: Request) {
       riskLevel: getRiskFromScore(final),
       availabilityStatus: availability,
       resaleStatus: marketplace?.resaleStatus ?? "unknown",
-      premiumSignal: marketData.premiumSignal,
-      comparableSalesCount: marketData.comparableSalesCount,
+      premiumSignal: enrichedMarketData.premiumSignal,
+      comparableSalesCount: comparableSalesSummary.count,
+      comparableSalesSummary,
       domainLength: rule.name.replace(/\./g, "").length,
       lowQualitySignal: hasLowQualityMlShape(mlPrediction),
     });
@@ -526,13 +728,13 @@ export async function POST(request: Request) {
       expiresAt: rdap.expiresAt,
       reasons: rule.reasons,
       weaknesses: rule.weaknesses,
-      comparableSalesCount: marketData.comparableSalesCount,
+      comparableSalesCount: comparableSalesSummary.count,
     });
 
     final = applyPremiumRealityCaps({
       score: final,
       tld: rule.tld,
-      marketData,
+      marketData: enrichedMarketData,
       mlPrediction,
       aiInsights: openaiInsights,
       availabilityStatus: availability,
@@ -546,8 +748,9 @@ export async function POST(request: Request) {
     });
 
     valuation = adjustEstimatedValue({
-      rawEstimatedValueUsd: marketData.estimatedValueUsd,
+      rawEstimatedValueUsd: enrichedMarketData.estimatedValueUsd,
       mlEstimatedValueUsd: mlPrediction?.predictedValueUsd ?? null,
+      mlPredictionConfidence: mlPrediction?.confidence ?? null,
       tld: rule.tld,
       score: final,
       investmentScore,
@@ -556,8 +759,9 @@ export async function POST(request: Request) {
       riskLevel: getRiskFromScore(final),
       availabilityStatus: availability,
       resaleStatus: marketplace?.resaleStatus ?? "unknown",
-      premiumSignal: marketData.premiumSignal,
-      comparableSalesCount: marketData.comparableSalesCount,
+      premiumSignal: enrichedMarketData.premiumSignal,
+      comparableSalesCount: comparableSalesSummary.count,
+      comparableSalesSummary,
       domainLength: rule.name.replace(/\./g, "").length,
       lowQualitySignal: hasLowQualityMlShape(mlPrediction),
     });
@@ -569,7 +773,7 @@ export async function POST(request: Request) {
     const verdict = getRealityCheckedVerdict({
       score: final,
       aiInsights: openaiInsights,
-      marketData,
+      marketData: enrichedMarketData,
       tld: rule.tld,
     });
     aiAdjustedEstimatedValueUsd = capAdvisoryAdjustedValue({
@@ -578,8 +782,18 @@ export async function POST(request: Request) {
       score: final,
       tld: rule.tld,
       availabilityStatus: availability,
-      comparableSalesCount: marketData.comparableSalesCount,
+      comparableSalesCount: comparableSalesSummary.count,
+      comparableSalesSummary,
+      mlPrediction,
+      anchorUsd: valuation.tldMarketAnchorUsd,
       aiInsights: openaiInsights,
+    });
+
+    const pricingConfidence = getPricingConfidence({
+      mlConfidence: mlPrediction?.confidence ?? null,
+      comparableSales: comparableSalesSummary,
+      score: final,
+      availabilityStatus: availability,
     });
 
     const investmentReport = generateInvestmentReport({
@@ -598,7 +812,7 @@ export async function POST(request: Request) {
       reasons: rule.reasons,
       weaknesses: rule.weaknesses,
       riskLevel: getRiskFromScore(final),
-      comparableSalesCount: marketData.comparableSalesCount,
+      comparableSalesCount: comparableSalesSummary.count,
     });
 
     const valueProjection = generateValueProjection({
@@ -624,7 +838,7 @@ export async function POST(request: Request) {
       ruleScore: rule.ruleScore,
       marketScore,
       availabilityStatus: availability,
-      estimatedValueUsd: marketData.estimatedValueUsd,
+      estimatedValueUsd: enrichedMarketData.estimatedValueUsd,
       mlPredictedValueUsd: mlPrediction?.predictedValueUsd ?? null,
       mlPredictionConfidence: mlPrediction?.confidence ?? null,
       mlExtractedFeatures: mlPrediction?.extractedFeatures ?? null,
@@ -632,14 +846,24 @@ export async function POST(request: Request) {
       modelAdjustedEstimatedValueUsd: valuation.adjustedEstimatedValueUsd,
       adjustedEstimatedValueUsd: aiAdjustedEstimatedValueUsd,
       liquidityScore: valuation.liquidityScore,
-      comparableSalesCount: marketData.comparableSalesCount,
+      comparableSalesCount: comparableSalesSummary.count,
+      valuationBasis: {
+        pricingConfidence,
+        comparableSalesUsed: comparableSalesSummary.count,
+        comparableMedianUsd: comparableSalesSummary.medianSaleUsd,
+        comparableWeightedMedianUsd: comparableSalesSummary.weightedMedianSaleUsd,
+        averageComparableSimilarity:
+          comparableSalesSummary.averageSimilarity > 0
+            ? comparableSalesSummary.averageSimilarity
+            : null,
+      },
       rdap,
       breakdown: rule.breakdown,
       verdict,
       riskLevel: getRiskFromScore(final),
       reasons: rule.reasons,
       weaknesses: rule.weaknesses,
-      marketData,
+      marketData: enrichedMarketData,
       comparableSales,
       marketplaceStatus: marketplace?.status ?? "unknown",
       marketplaceName: marketplace?.marketplaceName ?? null,
