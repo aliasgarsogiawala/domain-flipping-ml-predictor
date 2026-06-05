@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { loadMarketData } from "./marketData";
 
 export type DomainIdeaBrief = {
@@ -74,6 +75,7 @@ export type AssistantAnalysisContext = {
 const DEFAULT_MODEL = process.env.OPENAI_DOMAIN_MODEL || "gpt-4.1-mini";
 const DEFAULT_GEMINI_MODEL = process.env.GEMINI_DOMAIN_MODEL || "gemini-3.5-flash";
 let cachedClient: OpenAI | null = null;
+let cachedGeminiClient: GoogleGenAI | null = null;
 
 function getClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -90,6 +92,15 @@ function clamp(value: number, min: number, max: number) {
 
 function getGeminiApiKey() {
   return process.env.GEMINI_API_KEY || null;
+}
+
+function getGeminiClient() {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) return null;
+  if (!cachedGeminiClient) {
+    cachedGeminiClient = new GoogleGenAI({ apiKey });
+  }
+  return cachedGeminiClient;
 }
 
 function normalizeDomain(value: string) {
@@ -254,64 +265,27 @@ async function generateGeminiJson<T>({
   schema: Record<string, unknown>;
   searchGrounded?: boolean;
 }) {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) return null;
+  const client = getGeminiClient();
+  if (!client) return null;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_GEMINI_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        ...(searchGrounded ? { tools: [{ googleSearch: {} }] } : {}),
-        generationConfig: {
-          responseFormat: {
-            text: {
-              mimeType: "application/json",
-              schema,
-            },
-          },
-        },
-      }),
+  const response = await client.models.generateContent({
+    model: DEFAULT_GEMINI_MODEL,
+    contents: prompt,
+    config: {
+      ...(searchGrounded ? { tools: [{ googleSearch: {} }] } : {}),
+      responseMimeType: "application/json",
+      responseJsonSchema: schema,
     },
-  );
+  });
 
-  if (!response.ok) {
-    throw new Error(`Gemini request failed with ${response.status}`);
-  }
-
-  const payload = (await response.json()) as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{ text?: string }>;
-      };
-      groundingMetadata?: {
-        groundingChunks?: Array<{
-          web?: {
-            uri?: string;
-          };
-        }>;
-      };
-    }>;
-  };
-
-  const candidate = payload.candidates?.[0];
-  const text = candidate?.content?.parts?.map((part) => part.text ?? "").join("").trim();
+  const text = response.text?.trim();
   if (!text) {
     throw new Error("Gemini returned an empty response.");
   }
 
   const citedSources = [
     ...new Set(
-      (candidate?.groundingMetadata?.groundingChunks ?? [])
+      (response.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
         .map((chunk) => chunk.web?.uri?.trim())
         .filter((value): value is string => Boolean(value)),
     ),
@@ -404,6 +378,7 @@ const groundedChatSchema = {
 
 export async function generateAssistantIdeas(brief: DomainIdeaBrief): Promise<DomainIdeaResponse> {
   const marketContext = await buildMarketContext();
+  let geminiFailure: string | null = null;
   const geminiPrompt = [
     "You are a premium domain naming strategist.",
     "Generate original, plausible, investor-aware domain ideas.",
@@ -445,12 +420,23 @@ export async function generateAssistantIdeas(brief: DomainIdeaBrief): Promise<Do
         },
       };
     }
-  } catch {
-    // Fall through to OpenAI and local fallback.
+  } catch (error) {
+    geminiFailure = error instanceof Error ? error.message : "Gemini generation failed.";
   }
 
   const client = getClient();
-  if (!client) return fallbackGenerateIdeas(brief);
+  if (!client) {
+    const fallback = fallbackGenerateIdeas(brief);
+    return {
+      ...fallback,
+      diagnostics: {
+        attemptedProviders: ["gemini", "fallback"],
+        warning: geminiFailure
+          ? `Gemini failed, so fallback logic was used. ${geminiFailure}`
+          : "Gemini was unavailable, so fallback logic was used.",
+      },
+    };
+  }
 
   try {
     const response = await client.responses.create({
@@ -495,16 +481,19 @@ export async function generateAssistantIdeas(brief: DomainIdeaBrief): Promise<Do
         .slice(0, 6),
       diagnostics: {
         attemptedProviders: ["gemini", "openai"],
-        warning: "Gemini did not produce a usable result, so OpenAI generated these names.",
+        warning: geminiFailure
+          ? `Gemini failed, so OpenAI generated these names. ${geminiFailure}`
+          : "Gemini did not produce a usable result, so OpenAI generated these names.",
       },
     };
-  } catch {
+  } catch (error) {
+    const openaiFailure = error instanceof Error ? error.message : "OpenAI generation failed.";
     const fallback = fallbackGenerateIdeas(brief);
     return {
       ...fallback,
       diagnostics: {
         attemptedProviders: ["gemini", "openai", "fallback"],
-        warning: "Both Gemini and OpenAI generation failed, so fallback logic was used.",
+        warning: `Both Gemini and OpenAI generation failed, so fallback logic was used. Gemini: ${geminiFailure ?? "unavailable"}. OpenAI: ${openaiFailure}`,
       },
     };
   }

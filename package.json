@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.4.2",
+    "@google/genai": "^2.8.0",
     "clsx": "^2.1.1",
     "convex": "^1.39.1",
     "next": "16.2.6",
