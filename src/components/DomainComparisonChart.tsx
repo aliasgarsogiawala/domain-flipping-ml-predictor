@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { formatInrFromUsd } from "@/lib/currency";
 
 type ComparisonResult = {
   domain: string;
@@ -27,11 +28,7 @@ type Props = {
 
 function formatMetric(metric: string, value: number) {
   if (metric === "Estimated Value") {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value);
+    return formatInrFromUsd(value);
   }
 
   return value;

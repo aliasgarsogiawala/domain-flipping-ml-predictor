@@ -6,6 +6,7 @@ import { useCallback, useState, useSyncExternalStore } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { addWatchedDomainRef } from "@/lib/convex";
+import { formatInrFromUsd } from "@/lib/currency";
 import type {
   AssistantAnalysisContext,
   AssistantChatMessage,
@@ -118,15 +119,6 @@ function usePersistentJsonState<T>(key: string, fallback: T) {
 function extractDomains(input: string) {
   const matches = input.toLowerCase().match(/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/g);
   return [...new Set(matches ?? [])];
-}
-
-function formatCurrency(value: number | null | undefined) {
-  if (!value && value !== 0) return "Not set";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 function Panel({
@@ -573,7 +565,7 @@ export default function AssistantPage() {
                           <span className="font-semibold text-black">Risk note:</span> {suggestion.riskNote}
                         </div>
                         <div className="data-mono rounded-2xl border border-black bg-white px-4 py-3 text-sm text-black">
-                          Indicative value: {formatCurrency(suggestion.indicativeValueUsd)}
+                          Indicative value: {formatInrFromUsd(suggestion.indicativeValueUsd)}
                         </div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">

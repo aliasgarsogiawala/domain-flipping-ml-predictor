@@ -1,8 +1,10 @@
 import CategoryBreakdownChart from "@/components/market/CategoryBreakdownChart";
 import MarketSummaryCards from "@/components/market/MarketSummaryCards";
 import SalesTable from "@/components/market/SalesTable";
+import TldComparisonPanel from "@/components/market/TldComparisonPanel";
 import TldSalesChart from "@/components/market/TldSalesChart";
 import { loadMarketData } from "@/lib/marketData";
+import Link from "next/link";
 
 export const revalidate = 3600;
 
@@ -18,18 +20,57 @@ export default async function MarketPage() {
   const marketData = await loadMarketData();
   const maxDistribution = Math.max(...marketData.priceDistribution.map((row) => row.count), 1);
   const hasData = marketData.summary.totalSalesRecords > 0;
+  const topTlds = marketData.tldPerformance.slice(0, 5);
+  const topCategories = marketData.categoryBreakdown.slice(0, 5);
 
   return (
     <main className="pb-16">
       <section className="grid-paper rounded-[30px] border border-black px-6 py-8 sm:px-8 lg:px-10">
-        <div className="max-w-4xl">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-600">Market Intelligence</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-black sm:text-5xl">
-            Domain Market Intelligence
-          </h1>
-          <p className="mt-4 text-base leading-8 text-slate-700 sm:text-lg">
-            Explore reported domain sales, extension performance, pricing benchmarks, and category-level market signals.
-          </p>
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="max-w-4xl">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-600">Market Intelligence</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-black sm:text-5xl">
+              Domain Market Intelligence
+            </h1>
+            <p className="mt-4 text-base leading-8 text-slate-700 sm:text-lg">
+              Explore reported domain sales, extension performance, pricing benchmarks, and category-level market signals.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {[
+                `${marketData.summary.totalSalesRecords.toLocaleString()} reported sales`,
+                `${marketData.availableTlds.length} tracked TLDs`,
+                `${marketData.availableCategories.length} tracked categories`,
+              ].map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-black bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-700"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[26px] border border-black bg-white p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Research Actions</p>
+            <div className="mt-4 grid gap-3">
+              <Link
+                href="/analyze"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border border-black bg-[var(--lime)] px-4 text-sm font-semibold text-black"
+              >
+                Analyze a domain
+              </Link>
+              <Link
+                href="/assistant"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border border-black bg-white px-4 text-sm font-semibold text-black"
+              >
+                Ask the AI assistant
+              </Link>
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              Use this page as the research layer, then move shortlisted names into analysis, chat, or watchlist workflows.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -138,13 +179,63 @@ export default async function MarketPage() {
         </div>
       </section>
 
-      <section className="mt-8 panel-white rounded-[30px] p-6 sm:p-8">
-        <div className="border-b border-black pb-4">
-          <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Category Trends</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Category-level market signals</h2>
+      {topTlds.length > 1 ? (
+        <section className="mt-8">
+          <TldComparisonPanel data={marketData.tldPerformance} />
+        </section>
+      ) : null}
+
+      <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="panel-white rounded-[30px] p-6 sm:p-8">
+          <div className="border-b border-black pb-4">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Category Trends</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Category-level market signals</h2>
+          </div>
+          <div className="mt-6">
+            <CategoryBreakdownChart data={marketData.categoryBreakdown} />
+          </div>
         </div>
-        <div className="mt-6">
-          <CategoryBreakdownChart data={marketData.categoryBreakdown} />
+
+        <div className="space-y-6">
+          <div className="panel-white rounded-[30px] p-6">
+            <div className="border-b border-black pb-4">
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Top TLD Benchmarks</p>
+              <h3 className="mt-2 text-2xl font-semibold text-black">Most relevant extensions now</h3>
+            </div>
+            <div className="mt-5 space-y-3">
+              {topTlds.map((row) => (
+                <div key={row.tld} className="rounded-[20px] border border-black bg-white px-4 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="data-mono text-xl font-semibold text-black">{row.tld}</p>
+                      <p className="mt-1 text-sm text-slate-600">{row.saleCount.toLocaleString()} observed sales</p>
+                    </div>
+                    <p className="data-mono text-sm font-medium text-slate-700">{formatCurrency(row.medianSalePrice)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="panel-white rounded-[30px] p-6">
+            <div className="border-b border-black pb-4">
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Category Leaders</p>
+              <h3 className="mt-2 text-2xl font-semibold text-black">Where demand is concentrating</h3>
+            </div>
+            <div className="mt-5 space-y-3">
+              {topCategories.map((row) => (
+                <div key={row.category} className="rounded-[20px] border border-black bg-white px-4 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-base font-semibold capitalize text-black">{row.category}</p>
+                      <p className="mt-1 text-sm text-slate-600">{row.salesCount.toLocaleString()} recorded sales</p>
+                    </div>
+                    <p className="data-mono text-sm font-medium text-slate-700">{formatCurrency(row.medianPrice)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

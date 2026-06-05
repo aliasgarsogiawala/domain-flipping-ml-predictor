@@ -18,7 +18,8 @@ const PREMIUM_EXAMPLES = new Set([
   "linear.app",
 ]);
 
-const STRONG_TLDS = new Set(["com", "ai", "io", "co", "app", "dev", "in"]);
+const TOP_TIER_TLDS = new Set(["com", "ai", "io"]);
+const MID_TIER_TLDS = new Set(["co", "app", "dev", "in"]);
 const TREND_TERMS = new Set(["ai", "agent", "data", "cloud", "dev", "pay", "health", "tech"]);
 const COMMERCIAL_TERMS = new Set(["capital", "market", "fund", "trade", "group", "studio", "systems"]);
 
@@ -71,7 +72,8 @@ export function getMockMarketData(domain: string): MockMarketData {
   const hash = hashText(normalized);
   const containsNumber = /\d/.test(name);
   const containsHyphen = name.includes("-");
-  const isStrongTld = STRONG_TLDS.has(tld);
+  const isTopTierTld = TOP_TIER_TLDS.has(tld);
+  const isMidTierTld = MID_TIER_TLDS.has(tld);
   const trendMatches = tokens.filter((token) => TREND_TERMS.has(token)).length;
   const commercialMatches = tokens.filter((token) => COMMERCIAL_TERMS.has(token)).length;
   const vowels = (compactName.match(/[aeiou]/g) ?? []).length;
@@ -81,7 +83,8 @@ export function getMockMarketData(domain: string): MockMarketData {
 
   let quality = 18;
 
-  if (isStrongTld) quality += 14;
+  if (isTopTierTld) quality += 14;
+  else if (isMidTierTld) quality += 8;
   else quality -= 6;
 
   if (compactName.length <= 5) quality += 16;
@@ -95,16 +98,18 @@ export function getMockMarketData(domain: string): MockMarketData {
   if (!containsHyphen) quality += 5;
   else quality -= 9;
 
-  if (pronounceable) quality += 8;
-  else quality -= 9;
+  if (pronounceable) quality += 5;
+  else quality -= 10;
 
   if (vowelRatio >= 0.25 && vowelRatio <= 0.6) quality += 6;
   else quality -= 4;
 
-  if (distinctRatio >= 0.7) quality += 4;
+  if (distinctRatio >= 0.68 && distinctRatio <= 0.88) quality += 4;
+  else if (distinctRatio > 0.92) quality -= 3;
   if (trendMatches > 0) quality += Math.min(8, trendMatches * 3);
   if (commercialMatches > 0) quality += Math.min(7, commercialMatches * 3);
   if (tokens.length >= 3) quality -= 5;
+  if (tokens.length === 1 && compactName.length >= 8) quality -= 5;
 
   quality = clamp(quality, 4, 82);
 
@@ -113,33 +118,53 @@ export function getMockMarketData(domain: string): MockMarketData {
     demandScore >= 60 ? "High" : demandScore >= 38 ? "Medium" : "Low";
 
   const premiumSignal =
-    isStrongTld &&
-    compactName.length <= 8 &&
+    isTopTierTld &&
+    compactName.length <= 6 &&
+    tokens.length === 1 &&
     !containsNumber &&
     !containsHyphen &&
     pronounceable &&
-    distinctRatio >= 0.68 &&
-    quality >= 62;
+    distinctRatio >= 0.58 &&
+    distinctRatio <= 0.86 &&
+    vowelRatio >= 0.24 &&
+    vowelRatio <= 0.58 &&
+    quality >= 72;
 
   const comparableSalesCount =
-    quality >= 65 ? 3 + (hash % 4) : quality >= 45 ? 1 + (hash % 3) : hash % 2;
+    premiumSignal && quality >= 74
+      ? 2 + (hash % 3)
+      : quality >= 60
+        ? 1 + (hash % 2)
+        : 0;
 
   const baseEstimate =
     quality <= 18
-      ? 120 + (hash % 180)
+      ? 18 + (hash % 22)
       : quality <= 30
-        ? 220 + (hash % 280)
+        ? 28 + (hash % 32)
         : quality <= 45
-          ? 420 + (hash % 650)
+          ? 45 + (hash % 55)
           : quality <= 60
-            ? 900 + (hash % 1400)
-            : 1800 + (hash % 3200);
+            ? 70 + (hash % 80)
+            : quality <= 72
+              ? 120 + (hash % 140)
+              : 220 + (hash % 260);
 
   const tldMultiplier =
-    tld === "com" ? 1.25 : tld === "ai" ? 1.12 : tld === "io" ? 1.05 : tld === "in" ? 0.92 : isStrongTld ? 0.95 : 0.65;
+    tld === "com"
+      ? 1.12
+      : tld === "ai"
+        ? 1.04
+        : tld === "io"
+          ? 0.96
+          : tld === "in"
+            ? 0.42
+            : isMidTierTld
+              ? 0.62
+              : 0.38;
 
   const marketDemandMultiplier =
-    marketDemand === "High" ? 1.18 : marketDemand === "Medium" ? 1.0 : 0.82;
+    marketDemand === "High" ? 1.06 : marketDemand === "Medium" ? 1.0 : 0.88;
 
   const estimatedValueUsd = Math.round(baseEstimate * tldMultiplier * marketDemandMultiplier);
   const averageComparableSaleUsd =

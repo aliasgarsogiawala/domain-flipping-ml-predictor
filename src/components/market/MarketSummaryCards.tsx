@@ -33,12 +33,16 @@ export default function MarketSummaryCards({ summary }: { summary: MarketSummary
         <div
           key={label}
           className={`rounded-[24px] border border-black p-5 ${
-            index === 1 ? "bg-[var(--lime)]" : "panel-white"
+            index === 1
+              ? "bg-[var(--lime)]"
+              : index === 2
+                ? "bg-[#101726] text-white"
+                : "panel-white"
           }`}
         >
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">{label}</p>
-          <p className="mt-3 data-mono text-2xl font-semibold text-black">{value}</p>
-          <p className="mt-2 text-sm leading-6 text-slate-700">{note}</p>
+          <p className={`text-[11px] font-bold uppercase tracking-[0.18em] ${index === 2 ? "text-slate-400" : "text-slate-600"}`}>{label}</p>
+          <p className={`mt-3 data-mono text-2xl font-semibold ${index === 2 ? "text-white" : "text-black"}`}>{value}</p>
+          <p className={`mt-2 text-sm leading-6 ${index === 2 ? "text-slate-300" : "text-slate-700"}`}>{note}</p>
         </div>
       ))}
     </div>

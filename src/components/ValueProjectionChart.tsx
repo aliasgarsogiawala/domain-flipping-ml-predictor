@@ -9,19 +9,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { formatInrAxisFromUsd, formatInrFromUsd } from "@/lib/currency";
 import type { ValueProjectionResult } from "@/lib/valueProjection";
 
 type Props = {
   projection: ValueProjectionResult;
 };
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 export default function ValueProjectionChart({ projection }: Props) {
   return (
@@ -39,7 +32,7 @@ export default function ValueProjectionChart({ projection }: Props) {
             tickLine={{ stroke: "#111111" }}
           />
           <YAxis
-            tickFormatter={(value) => `$${Math.round(value / 1000)}k`}
+            tickFormatter={(value) => formatInrAxisFromUsd(Number(value))}
             tick={{ fill: "#475569", fontSize: 12 }}
             axisLine={{ stroke: "#111111" }}
             tickLine={{ stroke: "#111111" }}
@@ -61,7 +54,7 @@ export default function ValueProjectionChart({ projection }: Props) {
                     : 0;
 
               return [
-                formatCurrency(numericValue),
+                formatInrFromUsd(numericValue),
                 name === "expected"
                   ? "Expected"
                   : name === "low"

@@ -8,6 +8,7 @@ import {
   removeWatchedDomainRef,
   updateWatchedDomainRef,
 } from "@/lib/convex";
+import { formatInrFromUsd } from "@/lib/currency";
 import { recheckDomain } from "@/lib/watchlist";
 import type { WatchItem } from "@/lib/watchlist";
 
@@ -22,15 +23,6 @@ function formatDate(d?: string | null) {
   } catch {
     return d;
   }
-}
-
-function formatCurrency(value?: number | null) {
-  if (!value && value !== 0) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 function Stat({
@@ -189,7 +181,7 @@ function WatchlistContent() {
               </div>
               <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Portfolio estimate</p>
-                <p className="data-mono mt-3 text-3xl font-semibold text-white">{formatCurrency(totalEstimatedValue)}</p>
+                <p className="data-mono mt-3 text-3xl font-semibold text-white">{formatInrFromUsd(totalEstimatedValue)}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Combined adjusted estimate across tracked names.</p>
               </div>
             </div>
@@ -304,7 +296,7 @@ function WatchlistContent() {
                           <div className="mt-2 text-xs text-slate-500">{it.resaleStatus ?? "-"}</div>
                         </td>
                         <td className="px-3 py-4 text-sm text-slate-700">{formatDate(it.expiresAt)}</td>
-                        <td className="data-mono px-3 py-4 text-sm text-slate-700">{formatCurrency(it.estimatedValueUsd)}</td>
+                        <td className="data-mono px-3 py-4 text-sm text-slate-700">{formatInrFromUsd(it.estimatedValueUsd)}</td>
                         <td className="data-mono px-3 py-4 text-sm text-slate-700">{it.score ?? "-"}</td>
                         <td className="px-3 py-4 text-sm text-slate-600">{formatDate(it.lastCheckedAt)}</td>
                         <td className="px-3 py-4">

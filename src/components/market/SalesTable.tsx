@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { MarketSaleRecord } from "@/lib/marketData";
 
 function formatCurrency(value: number) {
@@ -31,6 +31,13 @@ const PRICE_FILTERS = [
   { label: "$50k+", min: 50000, max: Number.POSITIVE_INFINITY },
 ];
 
+const SORT_OPTIONS = [
+  { label: "Latest reported", value: "latest" },
+  { label: "Highest price", value: "highest" },
+  { label: "Lowest price", value: "lowest" },
+  { label: "Shortest name", value: "shortest" },
+];
+
 export default function SalesTable({
   records,
   tlds,
@@ -44,23 +51,61 @@ export default function SalesTable({
   const [selectedTld, setSelectedTld] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedPriceFilter, setSelectedPriceFilter] = useState("All prices");
+  const [sortBy, setSortBy] = useState("latest");
 
   const activePriceRange =
     PRICE_FILTERS.find((filter) => filter.label === selectedPriceFilter) ?? PRICE_FILTERS[0];
 
-  const filtered = records.filter((record) => {
-    const matchesSearch = !search.trim() || record.domain.includes(search.trim().toLowerCase());
-    const matchesTld = selectedTld === "all" || record.tld === selectedTld;
-    const matchesCategory = selectedCategory === "all" || record.category === selectedCategory;
-    const matchesPrice =
-      record.salePriceUsd >= activePriceRange.min && record.salePriceUsd < activePriceRange.max;
+  const filtered = useMemo(() => {
+    const filteredRecords = records.filter((record) => {
+      const matchesSearch = !search.trim() || record.domain.includes(search.trim().toLowerCase());
+      const matchesTld = selectedTld === "all" || record.tld === selectedTld;
+      const matchesCategory = selectedCategory === "all" || record.category === selectedCategory;
+      const matchesPrice =
+        record.salePriceUsd >= activePriceRange.min && record.salePriceUsd < activePriceRange.max;
 
-    return matchesSearch && matchesTld && matchesCategory && matchesPrice;
-  });
+      return matchesSearch && matchesTld && matchesCategory && matchesPrice;
+    });
+
+    return filteredRecords.sort((left, right) => {
+      if (sortBy === "highest") return right.salePriceUsd - left.salePriceUsd;
+      if (sortBy === "lowest") return left.salePriceUsd - right.salePriceUsd;
+      if (sortBy === "shortest") return (left.charLength ?? 99) - (right.charLength ?? 99);
+      return (right.saleDateTimestamp ?? 0) - (left.saleDateTimestamp ?? 0);
+    });
+  }, [activePriceRange.max, activePriceRange.min, records, search, selectedCategory, selectedTld, sortBy]);
+
+  const filteredMedian = useMemo(() => {
+    if (filtered.length === 0) return 0;
+    const prices = filtered.map((record) => record.salePriceUsd).sort((a, b) => a - b);
+    const middle = Math.floor(prices.length / 2);
+    return prices.length % 2 === 0
+      ? Math.round((prices[middle - 1] + prices[middle]) / 2)
+      : prices[middle];
+  }, [filtered]);
+
+  const highestFilteredSale = filtered[0]
+    ? [...filtered].sort((left, right) => right.salePriceUsd - left.salePriceUsd)[0]
+    : null;
+
+  const activeFilters = [
+    selectedTld !== "all" ? `TLD ${selectedTld}` : null,
+    selectedCategory !== "all" ? `Category ${selectedCategory}` : null,
+    selectedPriceFilter !== "All prices" ? selectedPriceFilter : null,
+    search.trim() ? `Search ${search.trim()}` : null,
+  ].filter(Boolean);
+
+  const resetFilters = () => {
+    setSearch("");
+    setSelectedTld("all");
+    setSelectedCategory("all");
+    setSelectedPriceFilter("All prices");
+    setSortBy("latest");
+  };
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_180px]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_170px_180px_180px_180px]">
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -102,6 +147,61 @@ export default function SalesTable({
             </option>
           ))}
         </select>
+        <select
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value)}
+          className="min-h-[48px] rounded-2xl border border-black bg-white px-4 text-sm text-black outline-none"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-[22px] border border-black bg-[var(--lime)] px-4 py-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">Filtered records</p>
+          <p className="mt-2 data-mono text-2xl font-semibold text-black">{filtered.length.toLocaleString()}</p>
+        </div>
+        <div className="rounded-[22px] border border-black bg-white px-4 py-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Filtered median price</p>
+          <p className="mt-2 data-mono text-2xl font-semibold text-black">{formatCurrency(filteredMedian)}</p>
+        </div>
+        <div className="rounded-[22px] border border-black bg-white px-4 py-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Highest visible sale</p>
+          <p className="mt-2 data-mono text-lg font-semibold text-black">
+            {highestFilteredSale ? highestFilteredSale.domain : "No records"}
+          </p>
+          <p className="mt-1 data-mono text-sm text-slate-700">
+            {highestFilteredSale ? formatCurrency(highestFilteredSale.salePriceUsd) : "Adjust filters to widen the view"}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {activeFilters.length > 0 ? (
+          activeFilters.map((filter) => (
+            <span
+              key={filter}
+              className="rounded-full border border-black bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-700"
+            >
+              {filter}
+            </span>
+          ))
+        ) : (
+          <span className="rounded-full border border-black bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-700">
+            No active filters
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="rounded-full border border-black bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-black"
+        >
+          Reset filters
+        </button>
       </div>
 
       <div className="overflow-x-auto rounded-[24px] border border-black bg-white">

@@ -7,6 +7,7 @@ import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import DomainComparisonChart from "@/components/DomainComparisonChart";
 import ValueProjectionChart from "@/components/ValueProjectionChart";
+import { formatInrFromUsd } from "@/lib/currency";
 import type { InvestmentReport } from "@/lib/investmentReport";
 import type { MockMarketData } from "@/lib/mockMarketData";
 import { addWatchedDomainRef } from "@/lib/convex";
@@ -86,15 +87,6 @@ function formatDate(dateString: string | null) {
     month: "short",
     day: "numeric",
   }).format(date);
-}
-
-function formatCurrency(value: number | null | undefined) {
-  if (!value && value !== 0) return "Not available";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 function titleCaseLabel(value: string | null | undefined) {
@@ -455,7 +447,7 @@ export default function AnalyzePage() {
                 <StatCard label="Final Score" value={`${result.score}`} subtext={result.verdict} mono />
                 <StatCard
                   label="Estimated Value"
-                  value={formatCurrency(result.adjustedEstimatedValueUsd)}
+                  value={formatInrFromUsd(result.adjustedEstimatedValueUsd)}
                   subtext="Adjusted estimate"
                   mono
                 />
@@ -724,10 +716,10 @@ export default function AnalyzePage() {
 
               <SectionCard eyebrow="Valuation Layer" title="Benchmark normalized estimates">
                 <div className="grid gap-3">
-                  <DetailRow label="Raw appraisal signal" value={formatCurrency(result.estimatedValueUsd)} mono />
-                  <DetailRow label="Model-adjusted value" value={formatCurrency(result.modelAdjustedEstimatedValueUsd)} mono />
-                  <DetailRow label="AI-adjusted value" value={formatCurrency(result.adjustedEstimatedValueUsd)} mono />
-                  <DetailRow label="TLD market benchmark" value={formatCurrency(result.tldMarketAnchorUsd)} mono />
+                  <DetailRow label="Raw appraisal signal" value={formatInrFromUsd(result.estimatedValueUsd)} mono />
+                  <DetailRow label="Model-adjusted value" value={formatInrFromUsd(result.modelAdjustedEstimatedValueUsd)} mono />
+                  <DetailRow label="AI-adjusted value" value={formatInrFromUsd(result.adjustedEstimatedValueUsd)} mono />
+                  <DetailRow label="TLD market benchmark" value={formatInrFromUsd(result.tldMarketAnchorUsd)} mono />
                   <DetailRow label="Liquidity score" value={`${result.liquidityScore}`} mono />
                 </div>
                 <p className="mt-4 text-sm leading-7 text-slate-700">
@@ -741,7 +733,7 @@ export default function AnalyzePage() {
                   <DetailRow label="Market score" value={`${result.marketScore}`} mono />
                   <DetailRow label="Resale status" value={titleCaseLabel(result.resaleStatus)} />
                   <DetailRow label="Marketplace" value={result.detectedMarketplace ?? "Not detected"} />
-                  <DetailRow label="Asking price" value={formatCurrency(result.askingPrice)} mono />
+                  <DetailRow label="Asking price" value={formatInrFromUsd(result.askingPrice)} mono />
                 </div>
               </SectionCard>
 

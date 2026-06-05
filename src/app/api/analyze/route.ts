@@ -86,9 +86,15 @@ function adjustEstimatedValue(params: {
   // Treat external and ML estimates as one pricing signal, not the dominant answer.
   let adjusted = baseEstimate * 0.35 + anchorDrivenEstimate * 0.65;
 
-  const liquidityCap =
-    anchor.medianVisibleSaleUsd * (1.2 + anchor.liquidityScore / 65);
-  const floor = anchor.medianVisibleSaleUsd * 0.35;
+  const liquidityCap = anchor.medianVisibleSaleUsd * (0.55 + anchor.liquidityScore / 90);
+  const floor =
+    params.score >= 80
+      ? anchor.medianVisibleSaleUsd * 0.18
+      : params.score >= 65
+        ? anchor.medianVisibleSaleUsd * 0.08
+        : params.score >= 50
+          ? anchor.medianVisibleSaleUsd * 0.035
+          : 20;
 
   adjusted = clamp(adjusted, floor, liquidityCap);
 
@@ -110,13 +116,30 @@ function adjustEstimatedValue(params: {
   }
 
   if (params.score < 35) {
-    adjusted = Math.min(adjusted, Math.max(180, anchor.medianVisibleSaleUsd * 0.22));
+    adjusted = Math.min(adjusted, Math.max(35, anchor.medianVisibleSaleUsd * 0.015));
   } else if (params.score < 45 && params.riskLevel === "High") {
-    adjusted = Math.min(adjusted, Math.max(260, anchor.medianVisibleSaleUsd * 0.32));
+    adjusted = Math.min(adjusted, Math.max(55, anchor.medianVisibleSaleUsd * 0.025));
   }
 
   if (params.lowQualitySignal) {
-    adjusted = Math.min(adjusted, Math.max(220, anchor.medianVisibleSaleUsd * 0.28));
+    adjusted = Math.min(adjusted, Math.max(45, anchor.medianVisibleSaleUsd * 0.02));
+  }
+
+  if (
+    params.availabilityStatus === "Available" &&
+    params.comparableSalesCount <= 1 &&
+    !params.premiumSignal
+  ) {
+    adjusted = Math.min(
+      adjusted,
+      params.tld === "com"
+        ? Math.max(70, anchor.medianVisibleSaleUsd * 0.02)
+        : Math.max(40, anchor.medianVisibleSaleUsd * 0.012),
+    );
+  }
+
+  if (params.tld === "in" && params.availabilityStatus === "Available") {
+    adjusted = Math.min(adjusted, Math.max(45, anchor.medianVisibleSaleUsd * 0.01));
   }
 
   return {
@@ -268,7 +291,7 @@ function applyPremiumRealityCaps(params: {
     params.aiInsights.endUserDemandScore >= 70;
 
   if (!params.aiInsights.eliteWordSignal && !eliteLikeShape) {
-    score = Math.min(score, params.tld === "com" ? 88 : 82);
+    score = Math.min(score, params.tld === "com" ? 82 : 70);
   }
 
   if (
@@ -276,11 +299,19 @@ function applyPremiumRealityCaps(params: {
     params.marketData.comparableSalesCount <= 1 &&
     params.aiInsights.premiumFeelScore < 72
   ) {
-    score = Math.min(score, 76);
+    score = Math.min(score, params.tld === "com" ? 68 : 56);
   }
 
   if (params.tld !== "com" && !strongAftermarketSupport) {
-    score = Math.min(score, 84);
+    score = Math.min(score, 76);
+  }
+
+  if (
+    params.tld === "in" &&
+    params.availabilityStatus !== "Taken" &&
+    params.marketData.comparableSalesCount <= 2
+  ) {
+    score = Math.min(score, 58);
   }
 
   if (
@@ -288,7 +319,7 @@ function applyPremiumRealityCaps(params: {
     params.aiInsights.endUserDemandScore < 56 &&
     params.marketData.comparableSalesCount <= 1
   ) {
-    score = Math.min(score, 68);
+    score = Math.min(score, 62);
   }
 
   return clamp(score, 0, 100);
@@ -301,11 +332,11 @@ function getRealityCheckedVerdict(params: {
   tld: string;
 }) {
   if (
-    params.score >= 85 &&
-    params.aiInsights.premiumFeelScore >= 80 &&
+    params.score >= 90 &&
+    params.aiInsights.premiumFeelScore >= 84 &&
     (params.aiInsights.eliteWordSignal || params.marketData.comparableSalesCount >= 4) &&
-    params.aiInsights.endUserDemandScore >= 72 &&
-    params.aiInsights.aftermarketStrengthScore >= 70 &&
+    params.aiInsights.endUserDemandScore >= 78 &&
+    params.aiInsights.aftermarketStrengthScore >= 74 &&
     params.tld === "com"
   ) {
     return "Premium Potential" as const;
@@ -314,6 +345,39 @@ function getRealityCheckedVerdict(params: {
   if (params.score >= 70) return "High Potential" as const;
   if (params.score >= 50) return "Moderate Potential" as const;
   return "Low Potential" as const;
+}
+
+function capAdvisoryAdjustedValue(params: {
+  baseValueUsd: number;
+  verdict: "Low Potential" | "Moderate Potential" | "High Potential" | "Premium Potential";
+  score: number;
+  tld: string;
+  availabilityStatus: "Available" | "Taken" | "Unknown";
+  comparableSalesCount: number;
+  aiInsights: Awaited<ReturnType<typeof generateOpenAIDomainInsights>>;
+}) {
+  let value = params.baseValueUsd;
+
+  if (params.verdict === "Low Potential") {
+    const strictLowCap =
+      params.availabilityStatus === "Taken" && params.comparableSalesCount >= 2 ? 85 : 60;
+
+    value = Math.min(value, strictLowCap);
+
+    if (
+      params.aiInsights.premiumFeelScore < 40 &&
+      params.aiInsights.endUserDemandScore < 45 &&
+      params.aiInsights.aftermarketStrengthScore < 40
+    ) {
+      value = Math.min(value, 45);
+    }
+  } else if (params.verdict === "Moderate Potential") {
+    value = Math.min(value, params.tld === "com" ? 220 : 140);
+  } else if (params.verdict === "High Potential") {
+    value = Math.min(value, params.tld === "com" ? 900 : 420);
+  }
+
+  return Math.max(0, Math.round(value));
 }
 
 export async function POST(request: Request) {
@@ -352,11 +416,14 @@ export async function POST(request: Request) {
     const compactName = rule.name.replace(/\./g, "");
     const hasHyphenOrNumber = /-|\d/.test(compactName);
     const hasComparables = (marketData.comparableSalesCount ?? 0) > 0;
-    const strongMarket = marketData.premiumSignal || (marketData.comparableSalesCount ?? 0) >= 3 || (marketData.estimatedValueUsd ?? 0) >= 50000;
+    const strongMarket =
+      marketData.premiumSignal ||
+      (marketData.comparableSalesCount ?? 0) >= 4 ||
+      rule.ruleScore >= 76;
 
     // If no comparables and no premium signal, cap at 72
     if (!hasComparables && !marketData.premiumSignal) {
-      final = Math.min(final, 72);
+      final = Math.min(final, 64);
     }
 
     // If TLD weak, cap at 65
@@ -371,22 +438,30 @@ export async function POST(request: Request) {
     }
 
     // If premium signal allow 85+
-    if (marketData.premiumSignal) {
-      final = Math.max(final, 85);
+    if (marketData.premiumSignal && rule.ruleScore >= 78 && availability === "Taken") {
+      final = Math.min(100, final + 4);
     }
 
     // If comparables strong, boost
-    if (marketData.comparableSalesCount >= 5) {
-      final = Math.min(100, final + 6);
+    if (marketData.comparableSalesCount >= 5 && rule.ruleScore >= 68) {
+      final = Math.min(100, final + 4);
     }
 
     // RDAP can add modest credibility, but should not override weak market/rule signals
     if (availability === "Available") {
-      final = Math.min(final, 78);
+      final = Math.min(final, rule.tld === "com" ? 68 : 60);
     }
 
     if (availability === "Unknown") {
-      final = Math.min(final, Math.max(rule.ruleScore, 74));
+      final = Math.min(final, Math.max(rule.ruleScore, 66));
+    }
+
+    if (availability === "Available" && marketData.comparableSalesCount <= 1) {
+      final = Math.min(final, rule.tld === "com" ? 66 : 58);
+    }
+
+    if (rule.tld === "in" && availability !== "Taken" && marketData.comparableSalesCount <= 2) {
+      final = Math.min(final, 58);
     }
 
     if (rdap.expiresAt) {
@@ -489,18 +564,21 @@ export async function POST(request: Request) {
       valuation.adjustedEstimatedValueUsd,
       openaiInsights,
     );
-
-    if (final < 40) {
-      aiAdjustedEstimatedValueUsd = Math.min(
-        aiAdjustedEstimatedValueUsd,
-        Math.max(180, valuation.tldMarketAnchorUsd * 0.24),
-      );
-    } else if (final < 55) {
-      aiAdjustedEstimatedValueUsd = Math.min(
-        aiAdjustedEstimatedValueUsd,
-        Math.max(320, valuation.tldMarketAnchorUsd * 0.4),
-      );
-    }
+    const verdict = getRealityCheckedVerdict({
+      score: final,
+      aiInsights: openaiInsights,
+      marketData,
+      tld: rule.tld,
+    });
+    aiAdjustedEstimatedValueUsd = capAdvisoryAdjustedValue({
+      baseValueUsd: aiAdjustedEstimatedValueUsd,
+      verdict,
+      score: final,
+      tld: rule.tld,
+      availabilityStatus: availability,
+      comparableSalesCount: marketData.comparableSalesCount,
+      aiInsights: openaiInsights,
+    });
 
     const investmentReport = generateInvestmentReport({
       domain: rule.domain,
@@ -555,12 +633,7 @@ export async function POST(request: Request) {
       comparableSalesCount: marketData.comparableSalesCount,
       rdap,
       breakdown: rule.breakdown,
-      verdict: getRealityCheckedVerdict({
-        score: final,
-        aiInsights: openaiInsights,
-        marketData,
-        tld: rule.tld,
-      }),
+      verdict,
       riskLevel: getRiskFromScore(final),
       reasons: rule.reasons,
       weaknesses: rule.weaknesses,

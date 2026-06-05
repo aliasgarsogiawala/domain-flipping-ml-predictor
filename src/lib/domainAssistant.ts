@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
+import { formatInrFromUsd } from "./currency";
 import { loadMarketData } from "./marketData";
 
 export type DomainIdeaBrief = {
@@ -215,7 +216,7 @@ function fallbackChatResponse(
     : [];
 
   const response = analysisContext
-    ? `${analysisContext.domain} currently scores ${analysisContext.score}/100 with ${analysisContext.riskLevel.toLowerCase()} risk and an adjusted estimate around $${analysisContext.adjustedEstimatedValueUsd.toLocaleString()}. The grounded assistant would lean ${analysisContext.score >= 75 ? "toward selective buying" : analysisContext.score >= 58 ? "toward monitoring" : "against active pursuit"} unless the acquisition price is unusually favorable.`
+    ? `${analysisContext.domain} currently scores ${analysisContext.score}/100 with ${analysisContext.riskLevel.toLowerCase()} risk and an adjusted estimate around ${formatInrFromUsd(analysisContext.adjustedEstimatedValueUsd)}. The grounded assistant would lean ${analysisContext.score >= 75 ? "toward selective buying" : analysisContext.score >= 58 ? "toward monitoring" : "against active pursuit"} unless the acquisition price is unusually favorable.`
     : `I can help analyze whether a domain is worth buying, propose alternatives, and frame acquisition strategy from your budget and keyword constraints. Ask about a specific name or give me a niche and TLD preference.`;
 
   return {
