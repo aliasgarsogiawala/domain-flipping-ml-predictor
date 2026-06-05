@@ -21,11 +21,15 @@ export type DomainIdeaSuggestion = {
 };
 
 export type DomainIdeaResponse = {
-  provider: "openai" | "fallback";
+  provider: "gemini" | "openai" | "fallback";
   model: string | null;
   overview: string;
   marketNote: string;
   suggestions: DomainIdeaSuggestion[];
+  diagnostics?: {
+    attemptedProviders: string[];
+    warning?: string | null;
+  };
 };
 
 export type AssistantChatMessage = {
@@ -34,13 +38,23 @@ export type AssistantChatMessage = {
 };
 
 export type AssistantChatResponse = {
-  provider: "openai" | "fallback";
+  provider: "gemini" | "openai" | "fallback";
   model: string | null;
   response: string;
   finalVerdict: string;
   reasoning: string[];
   suggestedActions: string[];
   alternativeDomains: string[];
+  independentPerspective?: {
+    provider: "gemini";
+    model: string | null;
+    response: string;
+    finalVerdict: string;
+    reasoning: string[];
+    alternativeDomains: string[];
+    searchGrounded: boolean;
+    citedSources: string[];
+  } | null;
 };
 
 export type AssistantAnalysisContext = {
@@ -58,6 +72,7 @@ export type AssistantAnalysisContext = {
 };
 
 const DEFAULT_MODEL = process.env.OPENAI_DOMAIN_MODEL || "gpt-4.1-mini";
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_DOMAIN_MODEL || "gemini-3.5-flash";
 let cachedClient: OpenAI | null = null;
 
 function getClient() {
@@ -71,6 +86,10 @@ function getClient() {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function getGeminiApiKey() {
+  return process.env.GEMINI_API_KEY || null;
 }
 
 function normalizeDomain(value: string) {
@@ -160,6 +179,10 @@ function fallbackGenerateIdeas(brief: DomainIdeaBrief): DomainIdeaResponse {
     marketNote:
       "This suggestion set is grounded in local market benchmarks and naming heuristics. AI enhancement will improve nuance when an API key is available.",
     suggestions: suggestions.slice(0, 6),
+    diagnostics: {
+      attemptedProviders: ["fallback"],
+      warning: "No external AI provider was used for this result.",
+    },
   };
 }
 
@@ -218,6 +241,86 @@ function fallbackChatResponse(
           "Share your budget, keywords, and target TLDs for name suggestions.",
         ],
     alternativeDomains,
+    independentPerspective: null,
+  };
+}
+
+async function generateGeminiJson<T>({
+  prompt,
+  schema,
+  searchGrounded = false,
+}: {
+  prompt: string;
+  schema: Record<string, unknown>;
+  searchGrounded?: boolean;
+}) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) return null;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_GEMINI_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        ...(searchGrounded ? { tools: [{ googleSearch: {} }] } : {}),
+        generationConfig: {
+          responseFormat: {
+            text: {
+              mimeType: "application/json",
+              schema,
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini request failed with ${response.status}`);
+  }
+
+  const payload = (await response.json()) as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{ text?: string }>;
+      };
+      groundingMetadata?: {
+        groundingChunks?: Array<{
+          web?: {
+            uri?: string;
+          };
+        }>;
+      };
+    }>;
+  };
+
+  const candidate = payload.candidates?.[0];
+  const text = candidate?.content?.parts?.map((part) => part.text ?? "").join("").trim();
+  if (!text) {
+    throw new Error("Gemini returned an empty response.");
+  }
+
+  const citedSources = [
+    ...new Set(
+      (candidate?.groundingMetadata?.groundingChunks ?? [])
+        .map((chunk) => chunk.web?.uri?.trim())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ].slice(0, 6);
+
+  return {
+    parsed: JSON.parse(text) as T,
+    citedSources,
+    searchGrounded: citedSources.length > 0,
   };
 }
 
@@ -277,11 +380,77 @@ const chatSchema = {
   required: ["response", "finalVerdict", "reasoning", "suggestedActions", "alternativeDomains"],
 } as const;
 
+const groundedChatSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    response: { type: "string" },
+    finalVerdict: { type: "string" },
+    reasoning: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 2,
+      maxItems: 4,
+    },
+    alternativeDomains: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 0,
+      maxItems: 5,
+    },
+  },
+  required: ["response", "finalVerdict", "reasoning", "alternativeDomains"],
+} as const;
+
 export async function generateAssistantIdeas(brief: DomainIdeaBrief): Promise<DomainIdeaResponse> {
+  const marketContext = await buildMarketContext();
+  const geminiPrompt = [
+    "You are a premium domain naming strategist.",
+    "Generate original, plausible, investor-aware domain ideas.",
+    "Do not simply prepend or append canned prefixes or suffixes to the provided keywords.",
+    "Avoid low-effort patterns like keyword + labs, keyword + hq, get + keyword, or keyword + ai unless the result is unusually strong.",
+    "At least half of the suggestions should NOT contain the main keyword verbatim.",
+    "Use naming techniques like metaphor, compression, phonetic branding, adjacent concepts, semantic association, or invented but pronounceable brandables.",
+    "Create names that feel like real startup, software, or brand assets that a founder would actually shortlist.",
+    "Return a varied set: some brandable names, some commercially direct names, and some premium-feeling concise names.",
+    "Respect budget, risk tolerance, TLD preference, and style.",
+    "Do not claim availability.",
+    "Keep pricing hints conservative and believable.",
+    JSON.stringify({ brief, marketContext }),
+  ].join("\n\n");
+
+  try {
+    const geminiResult = await generateGeminiJson<DomainIdeaResponse>({
+      prompt: geminiPrompt,
+      schema: ideaSchema as unknown as Record<string, unknown>,
+    });
+
+    if (geminiResult) {
+      return {
+        provider: "gemini",
+        model: DEFAULT_GEMINI_MODEL,
+        overview: geminiResult.parsed.overview,
+        marketNote: geminiResult.parsed.marketNote,
+        suggestions: (geminiResult.parsed.suggestions ?? [])
+          .map((item) => ({
+            ...item,
+            domain: normalizeDomain(item.domain) ?? item.domain.toLowerCase(),
+            scoreHint: clamp(item.scoreHint, 35, 95),
+            indicativeValueUsd: clamp(item.indicativeValueUsd, 100, 50000),
+          }))
+          .slice(0, 6),
+        diagnostics: {
+          attemptedProviders: ["gemini"],
+          warning: null,
+        },
+      };
+    }
+  } catch {
+    // Fall through to OpenAI and local fallback.
+  }
+
   const client = getClient();
   if (!client) return fallbackGenerateIdeas(brief);
-
-  const marketContext = await buildMarketContext();
 
   try {
     const response = await client.responses.create({
@@ -320,13 +489,24 @@ export async function generateAssistantIdeas(brief: DomainIdeaBrief): Promise<Do
         .map((item) => ({
           ...item,
           domain: normalizeDomain(item.domain) ?? item.domain.toLowerCase(),
-          scoreHint: clamp(item.scoreHint, 35, 95),
-          indicativeValueUsd: clamp(item.indicativeValueUsd, 100, 50000),
-        }))
+            scoreHint: clamp(item.scoreHint, 35, 95),
+            indicativeValueUsd: clamp(item.indicativeValueUsd, 100, 50000),
+          }))
         .slice(0, 6),
+      diagnostics: {
+        attemptedProviders: ["gemini", "openai"],
+        warning: "Gemini did not produce a usable result, so OpenAI generated these names.",
+      },
     };
   } catch {
-    return fallbackGenerateIdeas(brief);
+    const fallback = fallbackGenerateIdeas(brief);
+    return {
+      ...fallback,
+      diagnostics: {
+        attemptedProviders: ["gemini", "openai", "fallback"],
+        warning: "Both Gemini and OpenAI generation failed, so fallback logic was used.",
+      },
+    };
   }
 }
 
@@ -336,9 +516,53 @@ export async function generateAssistantChatReply(params: {
   analysisContext?: AssistantAnalysisContext | null;
 }): Promise<AssistantChatResponse> {
   const client = getClient();
-  if (!client) return fallbackChatResponse(params.message, params.analysisContext);
-
   const marketContext = await buildMarketContext();
+  if (!client) {
+    const fallback = fallbackChatResponse(params.message, params.analysisContext);
+
+    try {
+      const geminiPerspective = await generateGeminiJson<{
+        response: string;
+        finalVerdict: string;
+        reasoning: string[];
+        alternativeDomains: string[];
+      }>({
+        prompt: [
+          "Provide an independent AI opinion on this domain question.",
+          "Use Google Search grounding when useful to improve freshness and factuality.",
+          "Do not rely only on numeric analyzer scores; form your own conclusion.",
+          JSON.stringify({
+            message: params.message,
+            history: params.history.slice(-8),
+            analysisContext: params.analysisContext ?? null,
+            marketContext,
+          }),
+        ].join("\n\n"),
+        schema: groundedChatSchema as unknown as Record<string, unknown>,
+        searchGrounded: true,
+      });
+
+      if (geminiPerspective) {
+        fallback.independentPerspective = {
+          provider: "gemini",
+          model: DEFAULT_GEMINI_MODEL,
+          response: geminiPerspective.parsed.response,
+          finalVerdict: geminiPerspective.parsed.finalVerdict,
+          reasoning: (geminiPerspective.parsed.reasoning ?? []).slice(0, 4),
+          alternativeDomains: (geminiPerspective.parsed.alternativeDomains ?? [])
+            .map(normalizeDomain)
+            .filter((item): item is string => Boolean(item))
+            .slice(0, 5),
+          searchGrounded: geminiPerspective.searchGrounded,
+          citedSources: geminiPerspective.citedSources,
+        };
+      }
+    } catch {
+      // Keep fallback-only response.
+    }
+
+    return fallback;
+  }
 
   try {
     const response = await client.responses.create({
@@ -373,6 +597,50 @@ export async function generateAssistantChatReply(params: {
     });
 
     const parsed = JSON.parse(response.output_text) as AssistantChatResponse;
+    let independentPerspective: AssistantChatResponse["independentPerspective"] = null;
+
+    try {
+      const geminiPerspective = await generateGeminiJson<{
+        response: string;
+        finalVerdict: string;
+        reasoning: string[];
+        alternativeDomains: string[];
+      }>({
+        prompt: [
+          "Provide an independent AI opinion on this domain question.",
+          "Use Google Search grounding when useful to improve freshness and factuality.",
+          "Do not reuse the app's numeric score as the sole basis of the answer.",
+          "You may reference the provided analysis context, but form your own conclusion.",
+          JSON.stringify({
+            message: params.message,
+            history: params.history.slice(-8),
+            analysisContext: params.analysisContext ?? null,
+            marketContext,
+          }),
+        ].join("\n\n"),
+        schema: groundedChatSchema as unknown as Record<string, unknown>,
+        searchGrounded: true,
+      });
+
+      if (geminiPerspective) {
+        independentPerspective = {
+          provider: "gemini",
+          model: DEFAULT_GEMINI_MODEL,
+          response: geminiPerspective.parsed.response,
+          finalVerdict: geminiPerspective.parsed.finalVerdict,
+          reasoning: (geminiPerspective.parsed.reasoning ?? []).slice(0, 4),
+          alternativeDomains: (geminiPerspective.parsed.alternativeDomains ?? [])
+            .map(normalizeDomain)
+            .filter((item): item is string => Boolean(item))
+            .slice(0, 5),
+          searchGrounded: geminiPerspective.searchGrounded,
+          citedSources: geminiPerspective.citedSources,
+        };
+      }
+    } catch {
+      independentPerspective = null;
+    }
+
     return {
       provider: "openai",
       model: DEFAULT_MODEL,
@@ -384,6 +652,7 @@ export async function generateAssistantChatReply(params: {
         .map(normalizeDomain)
         .filter((item): item is string => Boolean(item))
         .slice(0, 5),
+      independentPerspective,
     };
   } catch {
     return fallbackChatResponse(params.message, params.analysisContext);

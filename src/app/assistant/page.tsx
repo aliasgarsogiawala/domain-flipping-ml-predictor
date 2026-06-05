@@ -171,6 +171,8 @@ export default function AssistantPage() {
   const [loadingChat, setLoadingChat] = useState(false);
   const [error, setError] = useState("");
   const [savedDomain, setSavedDomain] = useState<string | null>(null);
+  const [keywordDraft, setKeywordDraft] = useState("");
+  const [tldDraft, setTldDraft] = useState("");
 
   async function fetchAnalysisContext(domain: string): Promise<AssistantAnalysisContext | null> {
     const res = await fetch("/api/analyze", {
@@ -289,6 +291,43 @@ export default function AssistantPage() {
     setBrief((current) => ({ ...current, [key]: value }));
   }
 
+  function addKeyword(rawValue: string) {
+    const value = rawValue.trim().toLowerCase();
+    if (!value) return;
+    if (brief.keywords.includes(value)) {
+      setKeywordDraft("");
+      return;
+    }
+    updateBrief("keywords", [...brief.keywords, value]);
+    setKeywordDraft("");
+  }
+
+  function removeKeyword(keyword: string) {
+    updateBrief(
+      "keywords",
+      brief.keywords.filter((item) => item !== keyword),
+    );
+  }
+
+  function addTld(rawValue: string) {
+    const trimmed = rawValue.trim().toLowerCase();
+    if (!trimmed) return;
+    const normalized = trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
+    if (brief.preferredTlds.includes(normalized)) {
+      setTldDraft("");
+      return;
+    }
+    updateBrief("preferredTlds", [...brief.preferredTlds, normalized]);
+    setTldDraft("");
+  }
+
+  function removeTld(tld: string) {
+    updateBrief(
+      "preferredTlds",
+      brief.preferredTlds.filter((item) => item !== tld),
+    );
+  }
+
   return (
     <main className="pb-16">
       <section className="relative overflow-hidden rounded-[32px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
@@ -359,35 +398,81 @@ export default function AssistantPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300">Keywords</label>
-                <input
-                  value={brief.keywords.join(", ")}
-                  onChange={(event) =>
-                    updateBrief(
-                      "keywords",
-                      event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
-                    )
-                  }
-                  placeholder="agent, workflow, automation"
-                  className="mt-2 min-h-[48px] w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base text-slate-100 outline-none placeholder:text-slate-500"
-                />
+                <div className="mt-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {brief.keywords.map((keyword) => (
+                      <button
+                        key={keyword}
+                        type="button"
+                        onClick={() => removeKeyword(keyword)}
+                        className="inline-flex items-center rounded-full border border-white/10 bg-[#101726] px-3 py-1 text-sm font-medium text-slate-100"
+                      >
+                        {keyword}
+                        <span className="ml-2 text-slate-400">x</span>
+                      </button>
+                    ))}
+                    <input
+                      value={keywordDraft}
+                      onChange={(event) => setKeywordDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === " " || event.key === "Enter" || event.key === ",") {
+                          event.preventDefault();
+                          addKeyword(keywordDraft);
+                          return;
+                        }
+
+                        if (event.key === "Backspace" && !keywordDraft && brief.keywords.length) {
+                          event.preventDefault();
+                          const lastKeyword = brief.keywords[brief.keywords.length - 1];
+                          removeKeyword(lastKeyword);
+                          setKeywordDraft(lastKeyword);
+                        }
+                      }}
+                      onBlur={() => addKeyword(keywordDraft)}
+                      placeholder={brief.keywords.length ? "add another keyword" : "type keyword and press space"}
+                      className="min-w-[180px] flex-1 bg-transparent px-2 py-1 text-base text-slate-100 outline-none placeholder:text-slate-500"
+                    />
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300">Preferred TLDs</label>
-                <input
-                  value={brief.preferredTlds.join(", ")}
-                  onChange={(event) =>
-                    updateBrief(
-                      "preferredTlds",
-                      event.target.value
-                        .split(",")
-                        .map((item) => item.trim())
-                        .filter(Boolean)
-                        .map((item) => (item.startsWith(".") ? item : `.${item}`)),
-                    )
-                  }
-                  placeholder=".com, .ai"
-                  className="data-mono mt-2 min-h-[48px] w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base text-slate-100 outline-none placeholder:text-slate-500"
-                />
+                <div className="mt-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {brief.preferredTlds.map((tld) => (
+                      <button
+                        key={tld}
+                        type="button"
+                        onClick={() => removeTld(tld)}
+                        className="data-mono inline-flex items-center rounded-full border border-white/10 bg-[#101726] px-3 py-1 text-sm font-medium text-slate-100"
+                      >
+                        {tld}
+                        <span className="ml-2 text-slate-400">x</span>
+                      </button>
+                    ))}
+                    <input
+                      value={tldDraft}
+                      onChange={(event) => setTldDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === " " || event.key === "Enter" || event.key === ",") {
+                          event.preventDefault();
+                          addTld(tldDraft);
+                          return;
+                        }
+
+                        if (event.key === "Backspace" && !tldDraft && brief.preferredTlds.length) {
+                          event.preventDefault();
+                          const lastTld = brief.preferredTlds[brief.preferredTlds.length - 1];
+                          removeTld(lastTld);
+                          setTldDraft(lastTld);
+                        }
+                      }}
+                      onBlur={() => addTld(tldDraft)}
+                      placeholder={brief.preferredTlds.length ? "add another TLD" : "type TLD and press space"}
+                      className="data-mono min-w-[150px] flex-1 bg-transparent px-2 py-1 text-base text-slate-100 outline-none placeholder:text-slate-500"
+                    />
+                  </div>
+                </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -450,8 +535,23 @@ export default function AssistantPage() {
             {ideaResult ? (
               <>
                 <div className="rounded-[22px] border border-black bg-[var(--lime)] px-4 py-4">
-                  <p className="text-sm font-semibold text-black">{ideaResult.overview}</p>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-black">{ideaResult.overview}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <div className="rounded-full border border-black bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-black">
+                        Provider: {ideaResult.provider}
+                      </div>
+                      {ideaResult.model ? (
+                        <div className="rounded-full border border-black bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-black">
+                          {ideaResult.model}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                   <p className="mt-2 text-sm leading-7 text-slate-800">{ideaResult.marketNote}</p>
+                  {ideaResult.diagnostics?.warning ? (
+                    <p className="mt-3 text-sm font-medium text-[#7a2e00]">{ideaResult.diagnostics.warning}</p>
+                  ) : null}
                 </div>
                 <div className="mt-4 grid gap-4 xl:grid-cols-2">
                   {ideaResult.suggestions.map((suggestion) => (
@@ -588,6 +688,69 @@ export default function AssistantPage() {
                             {domain}
                           </Link>
                         ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {chatReply.independentPerspective ? (
+                    <div className="xl:col-span-2 panel-white-soft rounded-[22px] p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Pure AI Perspective</p>
+                          <p className="mt-2 text-base font-semibold text-black">{chatReply.independentPerspective.finalVerdict}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <div className="rounded-full border border-black bg-white px-3 py-1 text-sm font-semibold text-black">
+                            Gemini view
+                          </div>
+                          <div className="rounded-full border border-black bg-[var(--lime)] px-3 py-1 text-sm font-semibold text-black">
+                            {chatReply.independentPerspective.searchGrounded ? "Search grounded" : "Model only"}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="mt-4 text-sm leading-7 text-slate-700">
+                        {chatReply.independentPerspective.response}
+                      </p>
+                      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                        <div className="rounded-2xl border border-black bg-white p-4">
+                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Independent Reasoning</p>
+                          <div className="mt-3 space-y-3 text-sm leading-7 text-slate-700">
+                            {chatReply.independentPerspective.reasoning.map((item) => (
+                              <div key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                                {item}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-black bg-white p-4">
+                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Alternative Domains</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {chatReply.independentPerspective.alternativeDomains.map((domain) => (
+                              <Link
+                                key={domain}
+                                href={`/analyze?domain=${encodeURIComponent(domain)}`}
+                                className="data-mono rounded-full border border-black bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-[var(--lime)]"
+                              >
+                                {domain}
+                              </Link>
+                            ))}
+                          </div>
+                          {chatReply.independentPerspective.citedSources.length ? (
+                            <div className="mt-4 space-y-2">
+                              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Cited Sources</p>
+                              {chatReply.independentPerspective.citedSources.map((source) => (
+                                <a
+                                  key={source}
+                                  href={source}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block truncate text-sm text-slate-700 underline"
+                                >
+                                  {source}
+                                </a>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   ) : null}

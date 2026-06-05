@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
+import Image from "next/image";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -30,7 +31,16 @@ export default function Navbar() {
       >
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5 sm:px-8 lg:px-12">
           <div className="flex items-center gap-10">
-            <Link href="/" className="text-[34px] font-bold tracking-[-0.04em] text-black">
+            <Link href="/">
+            <Image 
+            height={50}
+            width={50}
+            src={"/nav.png"}
+            alt = "Nav Bar "
+            />
+            </Link>
+        
+            <Link href="/" className="text-[28px] font-bold tracking-[-0.04em] text-black">
               DomainFlip AI
             </Link>
             <nav className="hidden items-center gap-7 md:flex">
