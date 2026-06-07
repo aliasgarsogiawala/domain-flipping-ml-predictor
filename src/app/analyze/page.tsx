@@ -268,7 +268,7 @@ function SignalMeter({
 
 function DetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-black bg-white px-4 py-3 text-sm">
+    <div className="flex flex-col items-start justify-between gap-2 rounded-2xl border border-black bg-white px-4 py-3 text-sm">
       <span className="text-slate-600">{label}</span>
       <span className={`${mono ? "data-mono" : ""} text-right font-medium text-black`}>{value}</span>
     </div>

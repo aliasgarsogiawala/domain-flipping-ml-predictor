@@ -1,4 +1,4 @@
-# DomainFlip AI — Architecture & Internals
+# DomainFlip AI - Architecture & Internals
 
 This document explains how DomainFlip AI works end to end: every layer, how a single `/analyze` request flows through the system, how the valuation is built, and how the supporting subsystems (ML, AI advisory, RDAP, market data, watchlist) fit together.
 
@@ -51,8 +51,8 @@ Everything that produces a number or a verdict runs **server-side** inside the A
 
 There are two API routes:
 
-- `app/api/analyze/route.ts` — the analysis orchestrator (the heart of the product).
-- `app/api/assistant/route.ts` — assistant chat and idea generation (`lib/domainAssistant.ts`, Gemini-backed).
+- `app/api/analyze/route.ts` - the analysis orchestrator (the heart of the product).
+- `app/api/assistant/route.ts` - assistant chat and idea generation (`lib/domainAssistant.ts`, Gemini-backed).
 
 ---
 
@@ -64,16 +64,16 @@ A `POST /api/analyze` with `{ "domain": "example.com" }` runs the following orde
 2. **Rule analysis.** `analyzeRuleDomain(domain)` returns the normalized name/TLD, a `ruleScore`, a per-signal `breakdown`, and `reasons` / `weaknesses` arrays.
 3. **Exceptional-brand check.** `hasExceptionalBrandSignal(name)` flags marquee names (google, stripe, openai, ...) so they bypass the conservative caps that would otherwise apply.
 4. **Parallel data fetch** (`Promise.all`):
-   - `findComparableSales(domain, 5)` — nearest historical sales.
-   - `lookupRDAP(domain)` — registrar, dates, status, availability.
-   - `predictDomainValueWithMl(domain)` — Python model prediction + features.
-   - `getMarketplaceStatus(domain)` — resale / listing posture.
+   - `findComparableSales(domain, 5)` - nearest historical sales.
+   - `lookupRDAP(domain)` - registrar, dates, status, availability.
+   - `predictDomainValueWithMl(domain)` - Python model prediction + features.
+   - `getMarketplaceStatus(domain)` - resale / listing posture.
 5. **Comparable summary.** `summarizeComparableSales` computes count, average similarity, median, and a similarity-weighted median.
 6. **Registration-history score.** Derived from RDAP and merged into the rule breakdown.
 7. **Base score.** `final = round(ruleScore * 0.6 + marketScore * 0.4) + registrationHistory`, where `marketScore = computeMarketScore(marketData)`.
 8. **Reality caps on the score.** A series of `Math.min` guards prevent inflated scores: no comparables and not premium → cap 64; weak TLD → cap 65; hyphen/number with weak market → cap 60; `Available` names are capped (especially with ≤1 comp); `Unknown` availability is capped; `.in` with thin comps is capped. Small bonuses apply for premium + taken names and for many comparables.
 9. **Expiry pressure.** A near-expiry registration adds a small penalty and a weakness note.
-10. **ML quality nudge.** `scoreMlQualityAdjustment` adds or subtracts a few points based on ML-extracted features (clamped to ±8), then `final` is clamped to 0–100.
+10. **ML quality nudge.** `scoreMlQualityAdjustment` adds or subtracts a few points based on ML-extracted features (clamped to ±8), then `final` is clamped to 0-100.
 11. **Brand prestige + exceptional floors.** `computeBrandPrestigeScore` then `applyExceptionalBrandAdjustment` (marquee names get score/prestige floors).
 12. **First valuation pass.** `adjustEstimatedValue(...)` produces an initial blended estimate using the **ML prediction** as the model baseline.
 13. **AI advisory.** `generateOpenAIDomainInsights(...)` calls Gemini (or falls back) for the summary, signals, and suggestions.
@@ -145,7 +145,7 @@ RDAP (the structured successor to WHOIS) provides registrar, creation/updated/ex
 
 ## Machine learning
 
-Directory: `ml/` — bridged from Node by `src/lib/mlPredictor.ts`.
+Directory: `ml/` - bridged from Node by `src/lib/mlPredictor.ts`.
 
 ### Feature extraction (`ml/features.py`)
 
@@ -257,11 +257,11 @@ The `watchedDomains` table stores, per user: `domain`, `score`, `availabilitySta
 
 ## Frontend surfaces
 
-- `src/app/page.tsx` — landing page (static, illustrative sample data clearly labeled).
-- `src/app/analyze/page.tsx` — the analysis workspace: score ring, AI advisory with signal meters, valuation layer, comparable sales, investment report, value/trend/radar charts, acquisition workflow, and the RDAP/market panels.
-- `src/app/market/page.tsx` — dataset analytics (TLD performance, category breakdown, anomalies, comparison).
-- `src/app/assistant/page.tsx` — Gemini-backed chat and idea generation.
-- `src/app/watchlist/page.tsx` — protected portfolio monitor.
+- `src/app/page.tsx` - landing page (static, illustrative sample data clearly labeled).
+- `src/app/analyze/page.tsx` - the analysis workspace: score ring, AI advisory with signal meters, valuation layer, comparable sales, investment report, value/trend/radar charts, acquisition workflow, and the RDAP/market panels.
+- `src/app/market/page.tsx` - dataset analytics (TLD performance, category breakdown, anomalies, comparison).
+- `src/app/assistant/page.tsx` - Gemini-backed chat and idea generation.
+- `src/app/watchlist/page.tsx` - protected portfolio monitor.
 
 Charts are Recharts wrappers in `src/components/`. The fixed navbar is in `src/components/Navbar.tsx`; global tokens and the grid background live in `src/app/globals.css`.
 
