@@ -33,7 +33,7 @@ export default function RootLayout({
       <body className="shell min-h-full bg-background text-foreground">
         <ConvexClientProvider>
           <Navbar />
-          <div className="mx-auto w-full max-w-[1440px] px-4 pt-[108px] sm:px-8 sm:pt-[124px] lg:px-12">
+          <div className="mx-auto w-full max-w-[1440px] px-4 pt-[132px] sm:px-8 sm:pt-[152px] lg:px-12">
             {children}
           </div>
           <Footer />

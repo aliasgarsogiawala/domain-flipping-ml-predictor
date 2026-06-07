@@ -48,7 +48,7 @@ export default function Footer() {
 
       <div className="border-t border-white/[0.05] px-5 py-4 sm:px-10 lg:px-12">
         <p className="text-center text-[0.75rem] text-slate-600">
-          © {new Date().getFullYear()} DomainFlip AI — built for disciplined domain investors.
+          © {new Date().getFullYear()} DomainFlip AI. Built for disciplined domain investors.
         </p>
       </div>
     </footer>

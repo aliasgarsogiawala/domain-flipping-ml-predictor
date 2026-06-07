@@ -72,7 +72,7 @@ a, button, input, select, textarea {
   color: var(--ink);
 }
 
-/* ─── Shell — full-page grid lives HERE, covers every page ───────── */
+/* Shell - full-page grid lives HERE, covers every page */
 .shell {
   min-height: 100vh;
   background: var(--bg-light);
@@ -80,7 +80,7 @@ a, button, input, select, textarea {
   isolation: isolate;
 }
 
-/* Grid lines layer — fixed so it fills the entire viewport always */
+/* Grid lines layer - fixed so it fills the entire viewport always */
 .shell::before {
   content: "";
   position: fixed;
@@ -120,7 +120,7 @@ a, button, input, select, textarea {
   z-index: 1;
 }
 
-/* ─── page-wrap — extra wrapper for hero pages (no grid, shell has it) */
+/* page-wrap - extra wrapper for hero pages (no grid, shell has it) */
 .page-wrap {
   position: relative;
 }

@@ -28,7 +28,7 @@ const miniPipeline = [
 const marketSignals = [
   [".com liquidity",   "High",          "Broadest exit path for commercial buyers"],
   [".ai pricing",      "Firm",          "Premium demand in AI/startup categories"],
-  ["Opportunity band", "₹15k–₹80k",    "Where mispriced names are easiest to surface"],
+  ["Opportunity band", "₹15k-₹80k",    "Where mispriced names are easiest to surface"],
 ];
 
 const liveRows = [
@@ -55,7 +55,7 @@ const bentoCards = [
   {
     label: "Comparison",
     title: "Compare names side by side.",
-    copy:  "Run a head-to-head or a 3–5 domain battle and see which name leads on liquidity, brand strength, and acquisition fit.",
+    copy:  "Run a head-to-head or a 3 to 5 domain battle and see which name leads on liquidity, brand strength, and acquisition fit.",
     span:  "",
   },
   {
@@ -97,7 +97,7 @@ const faqRows = [
   ],
   [
     "Is the data real?",
-    "Valuations use a local dataset of reported domain sales plus live RDAP lookups. The sample figures on this page are illustrative — run a domain to see real output.",
+    "Valuations use a local dataset of reported domain sales plus live RDAP lookups. The sample figures on this page are illustrative. Run a domain to see real output.",
   ],
 ];
 
@@ -122,12 +122,12 @@ export default function Home() {
                 </span>
               </div>
 
-              <h1 className="max-w-5xl text-[3.8rem] font-semibold leading-[0.92] tracking-[-0.06em] text-white sm:text-[5rem] lg:text-[6.2rem]">
+              <h1 className="max-w-5xl text-[3.0rem] font-semibold leading-[0.92] tracking-[-0.06em] text-white sm:text-[5rem] lg:text-[6.2rem]">
                 Research domain value like a market desk, not a registrar form.
               </h1>
 
               <p className="max-w-2xl text-[1.0625rem] leading-[1.8] text-slate-300/90">
-                DomainFlip AI brings valuation, availability, comparable sales, resale status, and acquisition planning into one place — so you can judge a name, not just look it up.
+                DomainFlip AI brings valuation, availability, comparable sales, resale status, and acquisition planning into one place, so you can judge a name, not just look it up.
               </p>
             </div>
 

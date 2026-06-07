@@ -38,7 +38,7 @@ export default function Navbar() {
         <p className="text-[12.5px] font-semibold tracking-[0.05em] text-[#111]">
           <span className="sm:hidden">Domain intelligence workspace</span>
           <span className="hidden sm:inline">
-            Domain intelligence · valuation · watchlist monitoring — all in one workspace
+            Domain intelligence · valuation · watchlist monitoring · all in one workspace
           </span>
         </p>
       </div>

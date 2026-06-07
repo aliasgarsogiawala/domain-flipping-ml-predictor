@@ -339,7 +339,7 @@ export default async function MarketPage() {
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Short domain premium</p>
             <p className="mt-3 text-base font-semibold text-black">Length drives value non-linearly</p>
             <p className="mt-2 text-sm leading-7 text-slate-600">
-              Domains under 6 characters on .com often trade at 3–5× the price of 10+ character equivalents. The value curve steepens sharply below 5 characters. Length is one of the strongest pricing signals in the scoring engine.
+              Domains under 6 characters on .com often trade at 3 to 5 times the price of 10+ character equivalents. The value curve steepens sharply below 5 characters. Length is one of the strongest pricing signals in the scoring engine.
             </p>
           </div>
           <div className="rounded-[24px] border border-black bg-white p-5">
@@ -361,7 +361,7 @@ export default async function MarketPage() {
         <div className="mt-6 rounded-[24px] border border-black bg-[#f6f6f3] p-5">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Methodology note</p>
           <p className="mt-2 text-[0.9375rem] leading-[1.8] text-slate-700">
-            All pricing data on this page is sourced from the reported sales dataset. Reported sales are self-disclosed or publicly observed transactions — they may not capture private deals or off-market sales. Use these figures as directional benchmarks rather than guaranteed market rates. For a domain-specific estimate, run the Analyze tool and review the evidence-backed adjusted valuation.
+            All pricing data on this page is sourced from the reported sales dataset. Reported sales are self-disclosed or publicly observed transactions, so they may not capture private deals or off-market sales. Use these figures as directional benchmarks rather than guaranteed market rates. For a domain-specific estimate, run the Analyze tool and review the evidence-backed adjusted valuation.
           </p>
         </div>
       </section>

@@ -2,76 +2,87 @@
 
 DomainFlip AI is a domain research workspace for people who want more than a quick appraisal number.
 
-The app combines deterministic scoring, a local ML model, comparable sales from CSV datasets, RDAP ownership data, and AI-assisted summaries into one analysis flow. The goal is not to promise profit. The goal is to help someone make a more disciplined buy, watch, or avoid decision.
+It combines deterministic scoring, a local machine-learning model, comparable sales from a historical dataset, live RDAP ownership data, and an AI advisory layer into one analysis flow. The goal is not to promise profit. The goal is to help someone make a more disciplined buy, watch, or avoid decision, and to always show the evidence behind a number.
+
+> Looking for the deep dive? See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how every layer works, and [`docs/ROADMAP.md`](docs/ROADMAP.md) for what is intentionally incomplete and where the project is headed.
+
+---
 
 ## What the product does
 
-### Analyze domains
-- Normalizes and validates a domain input
-- Scores it across brandability, TLD strength, memorability, commercial intent, and risk
-- Pulls RDAP metadata such as registrar, creation date, expiry, and status flags
-- Detects resale posture and marketplace hints
-- Blends ML output, comparable sales, and TLD benchmarks into a value estimate
-- Generates an investment report with reasons to buy, reasons to avoid, and acquisition guidance
+### Analyze a domain (`/analyze`)
+- Normalizes and validates the input.
+- Scores it across 10 signals: TLD strength, length, brandability, memorability, pronounceability, brand prestige, trend relevance, commercial intent, registration history, and risk penalties.
+- Pulls live RDAP metadata: registrar, creation date, expiry, and status flags.
+- Detects resale posture and marketplace hints.
+- Blends the ML prediction, comparable sales, and TLD benchmarks into a value estimate, with risk-aware caps.
+- Surfaces live AI signals (premium feel, end-user demand, aftermarket strength, negotiation risk) and a written advisory summary.
+- Produces a deterministic investment report: reasons to buy, reasons to avoid, ideal buyer, acquisition strategy, and a final verdict.
+- Projects a 3-year value scenario range.
 
 ### Compare and battle-test names
-- Compare two domains side by side
-- Run a 3-5 domain battle mode for liquidity, brand strength, and acquisition posture
+- Compare two domains side by side.
+- Run a 3 to 5 domain battle and see the leaders for liquidity, brand strength, and acquisition fit.
 
-### Track watchlist candidates
-- Save domains to a Clerk-authenticated Convex-backed watchlist
-- Recheck individual names or recheck the full watchlist
-- Store target buy price, budget, and negotiation stance per domain
+### Track a watchlist (`/watchlist`)
+- Save domains to a Clerk-authenticated, Convex-backed watchlist.
+- Recheck a single name or the full list.
+- Store a target buy price, max budget, and negotiation stance per domain.
 
-### Explore the market dataset
-- Browse historical sales from local CSV data
-- Filter by TLD, category, search term, and price range
-- Compare TLD performance
-- Review anomaly flags and dataset-backed trend snapshots
-- Save market screens for quick revisit
+### Explore the market dataset (`/market`)
+- Browse historical sales from the local dataset.
+- Filter by TLD, category, search term, and price range.
+- Compare TLD performance and review category breakdowns.
+- See anomaly flags and dataset-backed trend snapshots.
 
-### Use the assistant
-- Ask grounded domain questions
-- Generate domain ideas from budget, keywords, style, and TLD preferences
-- Pull an AI perspective alongside the platform’s scoring and ML layers
+### Use the assistant (`/assistant`)
+- Ask grounded domain questions.
+- Generate domain ideas from a budget, keywords, naming style, and TLD preferences.
+- Get an AI perspective alongside the scoring and ML layers.
+
+---
 
 ## Product surfaces
 
-- `/` — landing page
-- `/analyze` — primary analysis workflow
-- `/market` — market intelligence workspace
-- `/assistant` — AI idea generation and chat
-- `/watchlist` — protected watchlist and portfolio monitor
+| Route | Purpose |
+| --- | --- |
+| `/` | Landing page |
+| `/analyze` | Primary analysis workflow |
+| `/market` | Market intelligence workspace |
+| `/assistant` | AI idea generation and chat |
+| `/watchlist` | Protected watchlist and portfolio monitor |
+
+---
 
 ## How pricing works
 
-Pricing is intentionally not based on one signal.
+Pricing is intentionally not based on a single signal. The valuation stack blends:
 
-The current valuation stack blends:
-- local ML prediction from historical sales data
-- nearest comparable sales from the merged dataset
-- curated TLD benchmark anchors
-- rule-based quality signals
-- AI helper signals for premium feel, end-user demand, and aftermarket strength
+1. A local ML prediction trained on historical sales.
+2. The nearest comparable sales from the dataset (deduped, similarity-scored).
+3. Curated TLD benchmark anchors.
+4. Rule-based quality signals.
+5. AI advisory signals for premium feel, end-user demand, and aftermarket strength.
 
-In weak-evidence cases, the benchmark influence is reduced so available, low-conviction names do not inherit unrealistic values just because a strong TLD has expensive historical outliers.
+The blend then passes through risk-aware caps so weak-evidence names do not inherit unrealistic values just because a strong TLD has expensive historical outliers. The full chain (raw signal to final estimate) is documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#valuation-pipeline).
 
-Investment-facing UI currently shows values in INR for readability. The market dataset itself remains USD-backed because the source sales records are in USD.
+Investment-facing UI shows values in INR for readability. The dataset stays USD-backed because the source sales records are in USD (conversion lives in `src/lib/currency.ts`).
+
+---
 
 ## Tech stack
 
-- Next.js 16 App Router
-- TypeScript
-- Tailwind CSS
-- Recharts
-- Clerk
-- Convex
-- Python
-- pandas
-- scikit-learn
-- joblib
-- OpenAI API
-- Gemini API
+| Layer | Technology |
+| --- | --- |
+| Framework | Next.js 16 (App Router), React 19, TypeScript |
+| Styling | Tailwind CSS v4 |
+| Charts | Recharts |
+| Auth | Clerk |
+| Database | Convex |
+| AI advisory | Google Gemini (`@google/genai`) with deterministic fallbacks |
+| ML | Python, scikit-learn, pandas, numpy, joblib |
+
+---
 
 ## Project structure
 
@@ -79,143 +90,88 @@ Investment-facing UI currently shows values in INR for readability. The market d
 src/
   app/
     api/
-      analyze/route.ts
-      assistant/route.ts
+      analyze/route.ts      # main analysis orchestration
+      assistant/route.ts    # assistant chat + idea generation
     analyze/page.tsx
     assistant/page.tsx
     market/page.tsx
     watchlist/page.tsx
+    page.tsx                # landing
+    layout.tsx
   components/
-    market/
+    market/                 # market page widgets and charts
+    ui/                     # auth-page background components
+    Navbar.tsx, Footer.tsx, *Chart.tsx
   lib/
-    domainAnalyzer.ts
-    marketData.ts
-    mlPredictor.ts
-    openaiDomainAdvisor.ts
-    rdap.ts
-    valueProjection.ts
+    domainAnalyzer.ts       # rule-based scoring engine
+    marketData.ts           # dataset loading + comparable sales
+    mlPredictor.ts          # bridge to the Python model
+    openaiDomainAdvisor.ts  # Gemini advisory layer (+ fallback)
+    domainAssistant.ts      # assistant grounding
+    valueProjection.ts      # 3-year scenario range
+    investmentReport.ts     # deterministic recommendation
+    rdap.ts                 # RDAP lookup + availability
+    domainMarketplace.ts    # resale / listing detection
+    mockMarketData.ts       # synthetic market signals
+    currency.ts, convex.ts, watchlist.ts, utils.ts
 
-convex/
-ml/
+convex/                     # schema + watchlist queries/mutations
+ml/                         # Python feature extraction, training, inference
 data/
-  raw/
-  processed/
+  raw/                      # source sales CSVs
+  processed/                # merged master dataset
+docs/                       # in-depth architecture + roadmap
 ```
+
+---
 
 ## Local data and ML
 
-Historical sales CSVs live in:
+Historical sales CSVs live in `data/raw/`. The merged master dataset lives in `data/processed/`. The market data loader (`src/lib/marketData.ts`) prefers the processed master and falls back to raw.
+
+The ML pipeline lives in `ml/`:
 
 ```text
-data/raw/
-```
-
-Processed merged data lives in:
-
-```text
-data/processed/
-```
-
-The ML pipeline lives in:
-
-```text
-ml/features.py
-ml/train.py
-ml/model.py
-ml/predict.py
+ml/features.py   # domain feature extraction (18 features)
+ml/train.py      # trains the RandomForestRegressor
+ml/model.py      # loads the bundle, runs inference, derives confidence
+ml/predict.py    # CLI entry point called from Node
 ```
 
 ### ML flow
 
-1. Raw CSVs are merged and normalized
-2. Domain features are extracted
-3. A `RandomForestRegressor` is trained on `price_usd`
-4. The trained bundle is saved to `ml/domain_value_model.pkl`
-5. The Next.js API route calls Python for inference through `src/lib/mlPredictor.ts`
+1. Raw CSVs are merged and normalized.
+2. Domain features are extracted (length, word count, brandability, pronounceability, TLD tier, category hint, and more).
+3. A `RandomForestRegressor` is trained on `price_usd` (log-transformed target).
+4. The trained bundle is saved to `ml/domain_value_model.pkl`.
+5. The Next.js API route shells out to Python for inference through `src/lib/mlPredictor.ts`.
 
-### Current checked ML artifact
+### About the current model
 
-The currently checked model artifact was inspected locally from `ml/domain_value_model.pkl`.
+- Model family: `RandomForestRegressor`
+- Training rows: ~350,000
+- Checked MAE: ~3,800 USD
 
-- model family: `RandomForestRegressor`
-- training rows: `350,309`
-- checked MAE: `3828.61 USD`
+That MAE is not "final accuracy". Domain-sale pricing is a noisy, heavy-tailed regression problem, so the app never relies on ML alone. ML confidence is derived from how much the individual forest trees disagree (relative dispersion), which is why low-signal names honestly report "Low". See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#machine-learning).
 
-That MAE is not “final accuracy” in a consumer-marketing sense. It is the average absolute pricing error on a very noisy domain-sales regression problem with heavy outliers. The app therefore does not rely on ML alone. It blends:
+---
 
-- ML baseline
-- comparable sales
-- TLD benchmark anchors
-- rule-based scoring
-- AI helper signals
+## Getting started
 
-This is also why `/analyze` exposes valuation evidence instead of pretending one model output is enough.
-
-## Environment variables
-
-At minimum, you will usually need:
-
-```env
-NEXT_PUBLIC_CONVEX_URL=
-CLERK_FRONTEND_API_URL=
-OPENAI_API_KEY=
-GEMINI_API_KEY=
-DOMAIN_ML_PYTHON=
-```
-
-Depending on your Clerk setup, you may also need the usual Clerk public and secret keys for the Next.js app.
-
-## Development
-
-Install dependencies:
+### 1. Install JavaScript dependencies
 
 ```bash
 npm install
 ```
 
-Run the app:
-
-```bash
-npm run dev
-```
-
-Run Convex in another terminal:
-
-```bash
-npx convex dev
-```
-
-Open:
-
-```text
-http://localhost:3000
-```
-
-## Demo flow
-
-If you are showing the project live, this is the cleanest path:
-
-1. Start on `/market` to show the dataset-backed side of the product
-2. Move to `/analyze` and break down one good domain and one bad domain
-3. Use comparable sales and the valuation layer to explain why the price is not a blind appraisal
-4. Save a domain to `/watchlist`
-5. Finish on `/assistant` to show AI-guided sourcing and questioning
-
-## Training the model
-
-Create a virtual environment if you do not already have one:
+### 2. Set up the Python model environment
 
 ```bash
 python3 -m venv .venv
+./.venv/bin/pip install -r ml/requirements.txt
 ```
 
-Install Python dependencies:
-
-```bash
-./.venv/bin/pip install pandas scikit-learn joblib
-```
-
-Train the model:
+The trained model (`ml/domain_value_model.pkl`) is checked in, so you do not need to retrain to run the app. To retrain:
 
 ```bash
 ./.venv/bin/python ml/train.py
@@ -227,51 +183,59 @@ Quick prediction check:
 ./.venv/bin/python ml/predict.py primeagent.ai
 ```
 
-If your Python binary is not at `.venv/bin/python`, set:
+### 3. Configure environment variables
+
+Create `.env.local`:
 
 ```env
-DOMAIN_ML_PYTHON=/absolute/path/to/python
+# Convex
+NEXT_PUBLIC_CONVEX_URL=
+CONVEX_DEPLOYMENT=
+
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+CLERK_FRONTEND_API_URL=
+
+# AI advisory (optional; app falls back to deterministic output without it)
+GEMINI_API_KEY=
+GEMINI_DOMAIN_MODEL=gemini-2.0-flash
+
+# Python binary for ML inference (defaults to ./.venv/bin/python)
+DOMAIN_ML_PYTHON=
 ```
 
-## Notes on AI integrations
+### 4. Run the app
 
-OpenAI and Gemini are both optional enhancement layers.
+```bash
+npm run dev          # Next.js on http://localhost:3000
+npx convex dev       # Convex, in a second terminal
+```
 
-If API keys are missing or rejected:
-- the app still works
-- deterministic fallbacks are used
-- the UI should still remain usable
+---
 
-That fallback behavior is intentional so the product can still demo even when external AI providers are unavailable.
+## AI integration behavior
 
-## Current product posture
+The Gemini advisory layer is an optional enhancement. If the key is missing or the call fails:
 
-This repository is an MVP with a serious research workflow, not a claim of perfect appraisal accuracy.
+- the app still works,
+- a deterministic heuristic fallback is used,
+- the `/analyze` UI shows a "Heuristic engine" badge instead of "Live AI".
 
-What is already strong:
-- multi-signal scoring
-- RDAP lookup
-- watchlist persistence
-- market dataset browsing
-- comparable sales on analysis
-- ML-assisted valuation
-- AI-assisted summaries and idea generation
+This keeps the product fully usable and demoable without external AI providers.
 
-What still needs iteration:
-- pricing calibration for edge cases
-- stronger comparable-sales weighting
-- more grounded aftermarket signals
-- better handling of true elite one-word domains
+---
 
-## Why the repo looks the way it does
+## Current posture
 
-This project was built under deadline pressure, so some parts are intentionally pragmatic:
-- the product uses heuristics where live commercial data is not available
-- the ML model is a practical baseline, not the final model
-- AI APIs are used as helpers, not as the single source of truth
+This repository is a working MVP with a real research workflow, not a claim of perfect appraisal accuracy.
 
-The direction is clear though: more evidence, better comps, cleaner ranking, and tighter confidence reporting.
+**Already strong:** multi-signal scoring, live RDAP, watchlist persistence, market dataset browsing, deduped comparable sales, ML-assisted valuation, live AI advisory with graceful fallback.
+
+**Still iterating:** pricing calibration for edge cases, TLD-aware comparable weighting, grounded aftermarket signals, and real registrar-backed availability and booking. The full list and direction are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+---
 
 ## License
 
-Add the license you want before publishing the repo publicly.
+No license has been added yet. Add one (for example MIT) before publishing the repository publicly.

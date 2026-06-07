@@ -1,0 +1,13 @@
+# Python dependencies for the DomainFlip AI valuation model.
+# Install into a local virtualenv:
+#   python3 -m venv .venv
+#   ./.venv/bin/pip install -r ml/requirements.txt
+#
+# Pin ranges kept loose on purpose; the checked-in model was trained with the
+# versions noted in the comments.
+
+scikit-learn>=1.5      # RandomForestRegressor pipeline (trained on 1.8.0)
+pandas>=2.2            # feature frame construction (trained on 3.0.x)
+numpy>=2.0             # numeric ops / tree dispersion (trained on 2.4.x)
+joblib>=1.4            # model (de)serialization (trained on 1.5.x)
+scipy>=1.13            # transitive scikit-learn dependency

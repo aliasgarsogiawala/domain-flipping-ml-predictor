@@ -2,6 +2,11 @@
 
 # dependencies
 /node_modules
+
+# python (ML pipeline)
+.venv/
+__pycache__/
+*.pyc
 /.pnp
 .pnp.*
 .yarn/*

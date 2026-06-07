@@ -118,7 +118,7 @@ export default function DomainComparisonSection() {
           Compare domains side-by-side
         </h2>
         <p className="max-w-2xl text-[0.9375rem] leading-[1.8] text-slate-600">
-          Enter 2–4 domains to run a live analysis comparison. Scores, valuations, risk levels, and recommendation badges are all surfaced side-by-side so the strongest candidate is immediately obvious.
+          Enter 2 to 4 domains to run a live analysis comparison. Scores, valuations, risk levels, and recommendation badges are all surfaced side-by-side so the strongest candidate is immediately obvious.
         </p>
       </div>
 

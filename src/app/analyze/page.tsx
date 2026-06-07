@@ -619,24 +619,24 @@ export default function AnalyzePage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="panel-dark-soft rounded-[24px] p-5">
+              <div className="panel-dark-soft min-w-0 rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Scoring stack</p>
-                <p className="data-mono mt-3 text-3xl font-semibold text-white">10 signals</p>
+                <p className="data-mono mt-3 break-words text-2xl font-semibold leading-tight text-white">10 signals</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">TLD strength, brandability, market posture, and penalties.</p>
               </div>
-              <div className="panel-dark-soft rounded-[24px] p-5">
+              <div className="panel-dark-soft min-w-0 rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Market anchors</p>
-                <p className="data-mono mt-3 text-3xl font-semibold text-white">TLD median refs</p>
+                <p className="data-mono mt-3 break-words text-2xl font-semibold leading-tight text-white">TLD median refs</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Curated benchmark values keep estimates believable.</p>
               </div>
-              <div className="panel-dark-soft rounded-[24px] p-5">
+              <div className="panel-dark-soft min-w-0 rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">RDAP visibility</p>
-                <p className="data-mono mt-3 text-3xl font-semibold text-white">Registrar-first</p>
+                <p className="data-mono mt-3 break-words text-2xl font-semibold leading-tight text-white">Registrar-first</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Lifecycle timing and ownership metadata where available.</p>
               </div>
-              <div className="panel-dark-soft rounded-[24px] p-5">
+              <div className="panel-dark-soft min-w-0 rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Monitoring flow</p>
-                <p className="data-mono mt-3 text-3xl font-semibold text-white">Watch ready</p>
+                <p className="data-mono mt-3 break-words text-2xl font-semibold leading-tight text-white">Watch ready</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Track taken assets and recheck them from the watchlist.</p>
               </div>
             </div>
@@ -853,7 +853,7 @@ export default function AnalyzePage() {
                     <SignalMeter
                       label="Negotiation Risk"
                       value={result.openaiInsights.negotiationRiskScore}
-                      hint="Lower is better — friction to acquire the name."
+                      hint="Lower is better. Friction to acquire the name."
                       invert
                     />
                   </div>
@@ -1161,7 +1161,7 @@ export default function AnalyzePage() {
                       {formatInrFromUsd(result.tldMarketAnchorUsd)}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Reference median for this extension — not a guaranteed clearing price.
+                      Reference median for this extension, not a guaranteed clearing price.
                     </p>
                   </div>
                 </div>
