@@ -1,275 +1,87 @@
-# DomainFlip AI - Architecture & Internals
+# DomainFlip AI - Architecture
 
-This document explains how DomainFlip AI works end to end: every layer, how a single `/analyze` request flows through the system, how the valuation is built, and how the supporting subsystems (ML, AI advisory, RDAP, market data, watchlist) fit together.
+How the product works end to end: the layers, how an analysis request flows, and how the valuation is built. For setup, see the [README](../README.md). For what's still incomplete, see [ROADMAP](ROADMAP.md).
 
-If you only want to run the app, the [README](../README.md) is enough. This document is for contributors who want to understand or change the internals.
+## The big picture
 
----
-
-## Table of contents
-
-1. [High-level system](#high-level-system)
-2. [The `/analyze` request lifecycle](#the-analyze-request-lifecycle)
-3. [Rule-based scoring](#rule-based-scoring)
-4. [Market signals and comparable sales](#market-signals-and-comparable-sales)
-5. [RDAP and availability](#rdap-and-availability)
-6. [Machine learning](#machine-learning)
-7. [AI advisory layer](#ai-advisory-layer)
-8. [Valuation pipeline](#valuation-pipeline)
-9. [Value projection](#value-projection)
-10. [Investment report](#investment-report)
-11. [Resale / marketplace detection](#resale--marketplace-detection)
-12. [Data layer (Convex + watchlist)](#data-layer-convex--watchlist)
-13. [Frontend surfaces](#frontend-surfaces)
-14. [Caching, currency, and cross-cutting concerns](#caching-currency-and-cross-cutting-concerns)
-
----
-
-## High-level system
+Everything that produces a number or a verdict runs server-side. The browser sends a domain, renders the structured response, and saves watchlist entries through Convex. There are two API routes: one for analysis, one for the assistant.
 
 ```text
-                        ┌──────────────────────────────────────────────┐
-   Browser (React 19)   │  Next.js App Router (server + client)         │
-   /analyze /market     │                                              │
-   /assistant /watchlist│   app/api/analyze/route.ts  (orchestrator)   │
-        │               │        │                                     │
-        │  fetch JSON   │        ├── lib/domainAnalyzer.ts  (rules)    │
-        ├──────────────▶│        ├── lib/marketData.ts      (comps)    │
-        │               │        ├── lib/rdap.ts            (RDAP)     │
-        │               │        ├── lib/mlPredictor.ts ──► Python     │
-        │               │        ├── lib/openaiDomainAdvisor ─► Gemini │
-        │               │        ├── lib/domainMarketplace  (resale)   │
-        │               │        ├── lib/valueProjection    (forecast) │
-        │               │        └── lib/investmentReport   (verdict)  │
-        │               └──────────────────────────────────────────────┘
-        │
-        │  Clerk auth + Convex (watchlist persistence)
-        └──────────────────────────────────────────────────────────────
+   Browser (React)            Next.js API
+   /analyze /market   ──────► analyze route ──┬─► rule-based scoring
+   /assistant /watchlist                      ├─► comparable sales (dataset)
+        │                                      ├─► RDAP lookup
+        │  Clerk auth                          ├─► ML model (Python)
+        ▼                                      ├─► AI advisory (Gemini)
+      Convex (watchlist)                       └─► report + projection
 ```
 
-Everything that produces a number or a verdict runs **server-side** inside the API routes. The client is presentational: it sends a domain, renders the structured response, and persists watchlist entries through Convex.
+## How an analysis runs
 
-There are two API routes:
+When you analyze a domain, the route gathers four things in parallel: comparable sales from the dataset, RDAP ownership data, an ML price prediction, and resale/marketplace posture. It scores the name across ten signals, blends those inputs into a value estimate, asks the AI layer for a written read, and assembles one JSON object with everything the page shows. Repeat lookups are served from a short in-memory cache.
 
-- `app/api/analyze/route.ts` - the analysis orchestrator (the heart of the product).
-- `app/api/assistant/route.ts` - assistant chat and idea generation (`lib/domainAssistant.ts`, Gemini-backed).
+The key idea is that no single input is trusted on its own. A strong TLD with expensive historical outliers won't drag a weak name up, and the AI layer can shade a price but never set it. Every figure on the page traces back to evidence the page also shows.
 
----
+## Scoring
 
-## The `/analyze` request lifecycle
+A deterministic engine scores each domain across ten weighted signals and renders them as bars. It also emits plain-language reasons and weaknesses that feed both the UI and the AI prompt.
 
-A `POST /api/analyze` with `{ "domain": "example.com" }` runs the following ordered pipeline. The order matters because later stages depend on earlier ones.
-
-1. **Validate + cache check.** Empty input is rejected. A 30-minute in-memory cache (`analysisCache`) short-circuits repeat lookups.
-2. **Rule analysis.** `analyzeRuleDomain(domain)` returns the normalized name/TLD, a `ruleScore`, a per-signal `breakdown`, and `reasons` / `weaknesses` arrays.
-3. **Exceptional-brand check.** `hasExceptionalBrandSignal(name)` flags marquee names (google, stripe, openai, ...) so they bypass the conservative caps that would otherwise apply.
-4. **Parallel data fetch** (`Promise.all`):
-   - `findComparableSales(domain, 5)` - nearest historical sales.
-   - `lookupRDAP(domain)` - registrar, dates, status, availability.
-   - `predictDomainValueWithMl(domain)` - Python model prediction + features.
-   - `getMarketplaceStatus(domain)` - resale / listing posture.
-5. **Comparable summary.** `summarizeComparableSales` computes count, average similarity, median, and a similarity-weighted median.
-6. **Registration-history score.** Derived from RDAP and merged into the rule breakdown.
-7. **Base score.** `final = round(ruleScore * 0.6 + marketScore * 0.4) + registrationHistory`, where `marketScore = computeMarketScore(marketData)`.
-8. **Reality caps on the score.** A series of `Math.min` guards prevent inflated scores: no comparables and not premium → cap 64; weak TLD → cap 65; hyphen/number with weak market → cap 60; `Available` names are capped (especially with ≤1 comp); `Unknown` availability is capped; `.in` with thin comps is capped. Small bonuses apply for premium + taken names and for many comparables.
-9. **Expiry pressure.** A near-expiry registration adds a small penalty and a weakness note.
-10. **ML quality nudge.** `scoreMlQualityAdjustment` adds or subtracts a few points based on ML-extracted features (clamped to ±8), then `final` is clamped to 0-100.
-11. **Brand prestige + exceptional floors.** `computeBrandPrestigeScore` then `applyExceptionalBrandAdjustment` (marquee names get score/prestige floors).
-12. **First valuation pass.** `adjustEstimatedValue(...)` produces an initial blended estimate using the **ML prediction** as the model baseline.
-13. **AI advisory.** `generateOpenAIDomainInsights(...)` calls Gemini (or falls back) for the summary, signals, and suggestions.
-14. **AI initial estimate.** `deriveAiInitialEstimate(...)` blends the current estimate, the raw appraisal signal, the TLD anchor, and comparable references, weighted by AI strength.
-15. **Premium reality caps (AI-aware).** `applyPremiumRealityCaps` can lower the score using AI signals (premium feel, end-user demand, aftermarket strength). Brand prestige and exceptional floors are recomputed.
-16. **Second valuation pass.** `adjustEstimatedValue(...)` runs again, this time using the **AI initial estimate** as the baseline with the advisor's confidence. Its output is `modelAdjustedEstimatedValueUsd`.
-17. **Advisory adjustment.** `applyAdvisoryValueAdjustment` nudges the value by at most ±8% based on AI confidence.
-18. **Verdict.** `getRealityCheckedVerdict` maps score + AI signals + comps + TLD to `Low / Moderate / High / Premium Potential`.
-19. **Final cap.** `capAdvisoryAdjustedValue` clamps the value to the highest *believable* reference (ML × 1.15, comparable median × verdict cap, TLD anchor × cap). This is the decisive step that keeps estimates grounded. The result is `adjustedEstimatedValueUsd`.
-20. **Pricing confidence, investment report, value projection** are computed.
-21. **Response assembled and cached.**
-
-The result is one JSON object containing scores, the valuation chain, RDAP, comparable sales, marketplace posture, AI insights, the investment report, and the value projection. Every number the UI shows comes from this single object.
-
----
-
-## Rule-based scoring
-
-File: `src/lib/domainAnalyzer.ts`
-
-The deterministic engine scores a domain across 10 weighted signals. Each contributes to `ruleScore` and to a `breakdown` map the UI renders as bars.
-
-| Signal | Max | What it measures |
+| Signal | Max | Measures |
 | --- | --- | --- |
-| `tldStrength` | 20 | TLD desirability tier (.com highest) |
-| `length` | 20 | Shorter is better, with penalties for very long names |
-| `brandability` | 20 | How brand-like and inventable the name reads |
-| `memorability` | 15 | Ease of recall |
-| `pronounceability` | 15 | Vowel/consonant balance, syllable flow |
-| `premiumBrandSignal` | 20 | Single-word, clean, premium shape |
-| `trendRelevance` | 15 | Match to in-demand categories (AI, fintech, etc.) |
-| `commercialIntent` | 15 | Commercial keyword presence |
-| `registrationHistory` | 10 | Age / lifecycle signal from RDAP |
-| `riskPenalties` | 20 | Deductions for hyphens, digits, length, risk flags |
+| TLD strength | 20 | Extension desirability (.com highest) |
+| Length | 20 | Shorter is better; long names penalized |
+| Brandability | 20 | How brand-like and inventable it reads |
+| Memorability | 15 | Ease of recall |
+| Pronounceability | 15 | Vowel/consonant balance and flow |
+| Brand prestige | 20 | Clean, single-word, premium shape |
+| Trend relevance | 15 | Fit to in-demand categories |
+| Commercial intent | 15 | Commercial keyword presence |
+| Registration history | 10 | Age and lifecycle from RDAP |
+| Risk penalties | 20 | Deductions for hyphens, digits, length, flags |
 
-The engine also emits human-readable `reasons` (positives) and `weaknesses` (negatives) that feed both the UI and the AI prompt.
+The score then passes through reality caps: names with no comparable sales, weak TLDs, or thin evidence are held down so the engine stays conservative, while marquee brands (google, stripe, and similar) get a floor so they aren't under-rated.
 
----
+## Comparable sales
 
-## Market signals and comparable sales
+Two market inputs feed the value. The first is a synthetic signal that gives a coarse starting anchor (deliberately optimistic, never the final number). The second is real: a dataset of historical domain sales. For a target name, the engine infers TLD, length, category, and word count, scores every record for similarity, keeps the closest matches, dedupes them by domain, and reduces them to a similarity-weighted median. That median is the comparable reference used in pricing.
 
-File: `src/lib/marketData.ts` and `src/lib/mockMarketData.ts`
-
-There are two market inputs:
-
-**1. Synthetic market signal (`mockMarketData.ts`).** Produces a coarse `estimatedValueUsd`, `comparableSalesCount`, `marketDemand`, and `premiumSignal` for a domain. Marquee/premium names get hardcoded high anchors (this is a deliberate placeholder; see [ROADMAP](ROADMAP.md)). The `estimatedValueUsd` here is the "raw appraisal signal" and is intentionally treated as an optimistic upper anchor, never the final number.
-
-**2. Real comparable sales (`marketData.ts`).** Loads the historical sales dataset (prefers `data/processed/domain_sales_master.csv`, falls back to `data/raw/`), then for a target domain:
-
-- infers TLD, length, category, and word count,
-- scores every record with `scoreComparableMatch` (TLD match +30, same length +20, same category +36, related category +14, word-count signals, with penalties for category mismatch),
-- filters to `similarityScore >= 34`, sorts best-first,
-- **dedupes by domain** so the same sale never appears twice,
-- returns the top `limit` matches.
-
-`summarizeComparableSales` (in the analyze route) reduces these to a count, average similarity, plain median, and a **similarity-weighted median**, which the valuation pipeline uses as the comparable reference.
-
-> Known limitation: matching is currently TLD-agnostic in its penalty structure, so a `.in` name can borrow `.com` premium comps. This inflates intermediate numbers (the final value is still capped). Addressed in the [roadmap](ROADMAP.md#1-valuation-accuracy).
-
----
+A current limitation is that matching doesn't penalize TLD mismatch strongly, so a ccTLD name can borrow `.com` comps. The final value is still capped, but this is the first thing to fix for accuracy (see ROADMAP).
 
 ## RDAP and availability
 
-File: `src/lib/rdap.ts`
-
-RDAP (the structured successor to WHOIS) provides registrar, creation/updated/expiry dates, and status flags. The lookup also yields an `availabilityStatus` of `Available`, `Taken`, or `Unknown`, which gates several scoring caps and the call-to-action on `/analyze` (Register vs Notify-when-available vs Check-again). Availability here is RDAP-derived, not registrar-cart-verified; real booking is on the roadmap.
-
----
+RDAP provides registrar, creation/expiry dates, and status flags, and yields an availability status of Available, Taken, or Unknown. That status gates several score caps and the call-to-action on the analyze page. It's inferred from RDAP, not verified against a registrar's cart, so real booking is future work.
 
 ## Machine learning
 
-Directory: `ml/` - bridged from Node by `src/lib/mlPredictor.ts`.
+The model lives in `ml/` and is called from Node by shelling out to Python. It extracts 18 features per domain (length, word count, brandability, pronounceability, TLD tier, a category hint, and more), and a `RandomForestRegressor` trained on a log-transformed price predicts a value.
 
-### Feature extraction (`ml/features.py`)
+Confidence is the interesting part: it comes from how much the forest's individual trees disagree. Tight agreement reads as High, wide spread reads as Low. So an invented ccTLD name the model has little signal for honestly reports Low confidence rather than faking certainty. If Python is unavailable, the prediction is simply skipped and the rest of the pipeline carries on.
 
-18 features are extracted per domain, including: `domain_length`, `word_count`, `contains_number`, `contains_hyphen`, `premium_keyword_count`, `estimated_brandability_score`, `tld_tier_score`, `vowel_ratio`, `unique_char_ratio`, `starts_with_premium_keyword`, `ends_with_premium_keyword`, `exact_match_bias`, `pronounceability_score`, `short_premium_signal`, `token_balance_score`, `repeated_char_penalty`, and a categorical `category_hint`.
+The current model is a baseline (~350k training rows, ~$3,800 MAE). Domain pricing is noisy and heavy-tailed, which is exactly why the app blends ML with comps, anchors, and rules instead of trusting it alone.
 
-### Training (`ml/train.py`)
+## AI advisory
 
-- Merges and normalizes the raw sales CSVs.
-- Builds a feature frame, one-hot encodes the categorical column, imputes numerics.
-- Trains a `RandomForestRegressor` inside a scikit-learn `Pipeline` on a **log1p-transformed** `price_usd` target (so the heavy right tail does not dominate).
-- Evaluates MAE on a holdout split and serializes the bundle (pipeline + target transform) to `ml/domain_value_model.pkl` with joblib.
+The advisory layer (file named `openaiDomainAdvisor.ts` for historical reasons, but it uses Google Gemini) takes the full scoring context and returns a written summary, valuation rationale, decision guidance, similar-name ideas, risk flags, buyer angles, a suggested recommendation, and four numeric signals: premium feel, end-user demand, aftermarket strength, and negotiation risk.
 
-### Inference (`ml/model.py`, `ml/predict.py`)
+If the API key is missing or the call fails, a deterministic fallback produces an equivalent from the scoring inputs, and the page shows a "Heuristic engine" badge instead of "Live AI". The advisory can only adjust the price by a small bounded amount, so it shades the result without driving it.
 
-`predict.py <domain>` prints JSON: `{ predictedValueUsd, confidence, extractedFeatures }`.
+## The valuation chain
 
-- The prediction is the pipeline output, inverse-transformed and clipped to a sane ceiling.
-- **Confidence is derived from tree dispersion**: the standard deviation of the individual trees' predictions relative to the mean. `<= 0.20` → High, `<= 0.45` → Medium, else → Low. So an invented `.in` word the forest is unsure about honestly reports "Low".
+The estimate is built in passes, each one pulling the number toward more defensible evidence. The clearest way to see it is a marquee example (`stripe.com`):
 
-### Node bridge (`src/lib/mlPredictor.ts`)
-
-Spawns the Python binary (`DOMAIN_ML_PYTHON` or `./.venv/bin/python`) via `execFile`, parses stdout, sanitizes the result (rejects non-finite or out-of-range values), and returns `null` on any failure so the rest of the pipeline degrades gracefully.
-
----
-
-## AI advisory layer
-
-File: `src/lib/openaiDomainAdvisor.ts` (named for historical reasons; it uses **Google Gemini**).
-
-Given the full scoring context, it asks Gemini (with a strict JSON schema) for:
-
-- `summary`, `valuationRationale`, `decisionGuidance`,
-- `similarDomains`, `acquisitionSuggestions`, `riskFlags`, `buyerAngles`,
-- `confidence` and a `suggestedRecommendation`,
-- a bounded `valueAdjustmentPercent` (clamped to small ranges by confidence),
-- and numeric signals: `premiumFeelScore`, `endUserDemandScore`, `aftermarketStrengthScore`, `negotiationRiskScore`, plus an `eliteWordSignal` flag.
-
-If `GEMINI_API_KEY` is missing or the call fails, `buildFallbackInsights` produces a deterministic equivalent from the scoring inputs. The response carries `provider: "gemini" | "fallback"`, which the `/analyze` UI renders as a "Live AI" or "Heuristic engine" badge. The advisory value adjustment is intentionally capped (≤8% at high confidence) so the model can shade, but never dominate, the price.
-
----
-
-## Valuation pipeline
-
-This is the most involved part of the system. The final estimate is the product of several passes, each grounding the number in more evidence. Worked example (`stripe.com`):
-
-| Stage | Value | Produced by |
+| Stage | Value | Comes from |
 | --- | --- | --- |
-| Raw appraisal signal | ~$1,200,000 | `mockMarketData` (hardcoded anchor) |
-| AI initial estimate | ~$108,000 | `deriveAiInitialEstimate` |
-| Model-adjusted value | ~$45,000 | second `adjustEstimatedValue` pass |
-| **Final estimate** | **~$5,880** | `capAdvisoryAdjustedValue` |
+| Raw appraisal signal | ~$1,200,000 | Synthetic anchor |
+| AI initial estimate | ~$108,000 | Optimistic blended starting point |
+| Model-adjusted value | ~$45,000 | Re-blended with ML, comps, anchor |
+| Final estimate | ~$5,880 | Capped to real evidence |
 
-### `adjustEstimatedValue`
+The final cap is the decisive step: it clamps the value to the highest *believable* reference, computed from the ML prediction, the comparable median, and the TLD anchor. That's why a six-figure intermediate collapses to a believable final value, because the ceiling tracks real sales and the model rather than the synthetic signal. A pricing-confidence label (Low/Medium/High) sits next to the estimate, based on ML confidence, comparable count, similarity, and score.
 
-Computes a weighted blend of four components and clamps it between a floor and a soft cap:
+## The rest
 
-- **ML / baseline** component (weighted by ML/advisor confidence),
-- **comparable-driven** component (weighted by comparable evidence strength),
-- **TLD-anchor-driven** component (anchor median × resale multiplier × exposure),
-- **raw heuristic** component (fixed small weight).
-
-It then applies availability- and TLD-specific multipliers (e.g. `Available` names with ≤1 comp are discounted; `.in` non-premium names are discounted; high risk is discounted), a confidence-aware floor, and a soft cap tied to the TLD median. Non-`.com` names without strong support are capped relative to the `.com` anchor. Exceptional brands get an uplift and a higher cap.
-
-### `deriveAiInitialEstimate`
-
-Blends the current estimate, the raw signal (small weight), the TLD anchor, and comparable references, scaled by an "AI strength" composite (premium feel, end-user demand, aftermarket strength). This is deliberately the most optimistic figure in the chain; it exists as an upper anchor that downstream caps pull back toward reality.
-
-### `capAdvisoryAdjustedValue` (the decisive cap)
-
-Computes a `referenceCeiling = max(ML × 1.15, comparableMedian × verdictCap, TLDAnchor × cap)` and clamps the value to it, with additional reductions for weak availability, thin comps, low AI strength, and lower verdicts. This is why a marquee name's six-figure intermediate estimate collapses to a believable low-four-figure final value: the ceiling tracks the ML prediction and real comparable sales, not the synthetic raw signal.
-
-### Pricing confidence
-
-`getPricingConfidence` combines ML confidence, comparable count, average similarity, and score into a Low/Medium/High label shown next to the estimate.
-
----
-
-## Value projection
-
-File: `src/lib/valueProjection.ts`
-
-Produces a 3-year scenario range (`low / expected / high` points) plus a `trajectory` (Momentum / Gradual / Flat / Downside), an `expectedChangePercent`, a `domainOutlookScore`, and `trendDrivers` / `riskDrivers`. It is derived from the score mix, comparable support, ML features, and AI demand signals. It is explicitly a scenario tool, not a promised return.
-
----
-
-## Investment report
-
-File: `src/lib/investmentReport.ts`
-
-A fully deterministic layer that turns the numbers into a recommendation (`Buy / Watch / Avoid`) with a summary, reasons to buy, reasons to avoid, ideal buyer profile, best use cases, acquisition strategy, risk explanation, resale potential, and a final verdict. Being deterministic, it is stable and explainable independent of the AI layer.
-
----
-
-## Resale / marketplace detection
-
-File: `src/lib/domainMarketplace.ts`
-
-Detects whether a taken domain looks listed for sale (resale status, detected marketplace, asking price, landing-page hints, marketplace links). Surfaced in the "Market Posture" section of `/analyze`. Detection is heuristic today; live aftermarket APIs are on the roadmap.
-
----
-
-## Data layer (Convex + watchlist)
-
-Files: `convex/schema.ts`, `convex/watchedDomains.ts`, `src/lib/watchlist.ts`, `src/lib/convex.ts`
-
-The `watchedDomains` table stores, per user: `domain`, `score`, `availabilityStatus`, `resaleStatus`, `estimatedValueUsd`, `registrar`, `expiresAt`, `lastCheckedAt`, `targetBuyPriceUsd`, `maxBudgetUsd`, `negotiationStance`, and timestamps. It is indexed `by_userId` and `by_userId_domain`. Convex exposes `listWatchedDomains`, `addWatchedDomain`, `removeWatchedDomain`, and `updateWatchedDomain`. Access is gated by Clerk auth (`middleware.ts`, `convex/auth.config.ts`). The acquisition-workflow inputs on `/analyze` (target price, budget, stance) are persisted here when a name is watched.
-
----
-
-## Frontend surfaces
-
-- `src/app/page.tsx` - landing page (static, illustrative sample data clearly labeled).
-- `src/app/analyze/page.tsx` - the analysis workspace: score ring, AI advisory with signal meters, valuation layer, comparable sales, investment report, value/trend/radar charts, acquisition workflow, and the RDAP/market panels.
-- `src/app/market/page.tsx` - dataset analytics (TLD performance, category breakdown, anomalies, comparison).
-- `src/app/assistant/page.tsx` - Gemini-backed chat and idea generation.
-- `src/app/watchlist/page.tsx` - protected portfolio monitor.
-
-Charts are Recharts wrappers in `src/components/`. The fixed navbar is in `src/components/Navbar.tsx`; global tokens and the grid background live in `src/app/globals.css`.
-
----
-
-## Caching, currency, and cross-cutting concerns
-
-- **Caching.** The analyze route keeps a 30-minute in-memory `Map` cache keyed by domain (bounded at 500 entries). This is per-process and resets on redeploy; a shared cache is a future improvement.
-- **Currency.** Source data and all internal math are in USD. `src/lib/currency.ts` converts to INR for display only.
-- **Graceful degradation.** Every external dependency (Gemini, Python ML, RDAP, marketplace) can fail independently and the route still returns a complete, sensible response.
-- **Failure isolation.** The whole route is wrapped so any unhandled error returns a clean `500` with a generic message rather than leaking internals.
+- **Value projection** turns the signals into a three-year scenario range (low / expected / high) with a trajectory and drivers. It's a scenario tool, not a promised return.
+- **Investment report** is fully deterministic: a Buy / Watch / Avoid call with reasons, ideal buyer, acquisition strategy, and a verdict. Being rule-based, it's stable and explainable independent of the AI layer.
+- **Resale detection** flags whether a taken name looks listed for sale, with the marketplace and asking price where detectable (heuristic for now).
+- **Watchlist** persists per-user domains in Convex (score, value, registrar, expiry, plus target price, budget, and stance), gated by Clerk auth.
+- **Cross-cutting:** source data and math are in USD and converted to INR for display only; every external dependency can fail independently without breaking the response; the analyze cache is per-process and resets on redeploy.
