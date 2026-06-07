@@ -1,0 +1,21 @@
+# Render Blueprint for the DomainFlip ML service (ml/server.py).
+#
+# This hosts ONLY the Python valuation model as an HTTP API. Deploy the Next.js
+# app separately (Vercel, Render, etc.) and point it here with DOMAIN_ML_URL.
+#
+# After deploy, the service URL looks like https://domainflip-ml.onrender.com
+# Set DOMAIN_ML_URL to that value in the Next.js app's environment.
+
+services:
+  - type: web
+    name: domainflip-ml
+    runtime: python
+    plan: standard            # ~2GB RAM; the 67MB model + scikit-learn needs headroom
+    rootDir: .                # repo root, so `ml.server:app` resolves as a package
+    buildCommand: pip install -r ml/requirements.txt
+    startCommand: uvicorn ml.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.4"

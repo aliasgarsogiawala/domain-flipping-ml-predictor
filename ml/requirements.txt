@@ -11,3 +11,7 @@ pandas>=2.2            # feature frame construction (trained on 3.0.x)
 numpy>=2.0             # numeric ops / tree dispersion (trained on 2.4.x)
 joblib>=1.4            # model (de)serialization (trained on 1.5.x)
 scipy>=1.13            # transitive scikit-learn dependency
+
+# HTTP service (ml/server.py) - only needed to host the model as an API
+fastapi>=0.115
+uvicorn[standard]>=0.30

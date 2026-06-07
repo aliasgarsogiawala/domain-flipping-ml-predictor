@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 import sys
@@ -44,6 +45,7 @@ def _confidence_from_tree_dispersion(expected_value: float, tree_predictions: np
     return "Low"
 
 
+@lru_cache(maxsize=2)
 def load_model_bundle(model_path: Path | str = MODEL_PATH) -> dict[str, Any]:
     path = Path(model_path)
     if not path.exists():

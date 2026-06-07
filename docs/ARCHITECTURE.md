@@ -53,7 +53,7 @@ RDAP provides registrar, creation/expiry dates, and status flags, and yields an 
 
 ## Machine learning
 
-The model lives in `ml/` and is called from Node by shelling out to Python. It extracts 18 features per domain (length, word count, brandability, pronounceability, TLD tier, a category hint, and more), and a `RandomForestRegressor` trained on a log-transformed price predicts a value.
+The model lives in `ml/`. It extracts 18 features per domain (length, word count, brandability, pronounceability, TLD tier, a category hint, and more), and a `RandomForestRegressor` trained on a log-transformed price predicts a value. In dev the app shells out to local Python; in production it calls a small FastAPI service (`ml/server.py`) over HTTP via `DOMAIN_ML_URL`, since the model can't run inside Node serverless functions.
 
 Confidence is the interesting part: it comes from how much the forest's individual trees disagree. Tight agreement reads as High, wide spread reads as Low. So an invented ccTLD name the model has little signal for honestly reports Low confidence rather than faking certainty. If Python is unavailable, the prediction is simply skipped and the rest of the pipeline carries on.
 

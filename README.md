@@ -56,7 +56,7 @@ docs/             # architecture + roadmap
 Install dependencies and set up the Python model environment:
 
 ```bash
-npm install
+pnpm install
 python3 -m venv .venv
 ./.venv/bin/pip install -r ml/requirements.txt
 ```
@@ -84,16 +84,43 @@ CLERK_FRONTEND_API_URL=
 GEMINI_API_KEY=
 GEMINI_DOMAIN_MODEL=gemini-2.0-flash
 
-# Python binary for ML inference (defaults to ./.venv/bin/python)
+# ML inference. In dev, leave DOMAIN_ML_URL unset and the app shells out to
+# local Python (DOMAIN_ML_PYTHON defaults to ./.venv/bin/python). In prod,
+# set DOMAIN_ML_URL to the hosted FastAPI service (see Deployment).
 DOMAIN_ML_PYTHON=
+DOMAIN_ML_URL=
 ```
 
 Run the app and Convex in two terminals:
 
 ```bash
-npm run dev          # http://localhost:3000
+pnpm dev             # http://localhost:3000
 npx convex dev
 ```
+
+To test the ML service locally instead of the shell-out path:
+
+```bash
+./.venv/bin/uvicorn ml.server:app --port 8000
+# then set DOMAIN_ML_URL=http://localhost:8000 for the Next.js app
+```
+
+## Deployment
+
+The ML model can't run inside Node serverless functions (it's a 67MB scikit-learn
+pickle that needs Python), so in production it runs as its own small FastAPI
+service and the app calls it over HTTP.
+
+1. **Host the model service** (`ml/server.py`) on Render. A `render.yaml`
+   blueprint is included: it installs `ml/requirements.txt` and runs
+   `uvicorn ml.server:app`. The service exposes `POST /predict` and `GET /health`.
+2. **Host the Next.js app** anywhere (Vercel works once ML is an HTTP call).
+3. Set **`DOMAIN_ML_URL`** on the app to the Render service URL
+   (e.g. `https://domainflip-ml.onrender.com`).
+
+If `DOMAIN_ML_URL` is unset or the service is down, the app falls back gracefully
+and simply runs without the ML signal. Convex and Clerk are managed, so they only
+need their prod credentials.
 
 ## A note on the AI layer
 
