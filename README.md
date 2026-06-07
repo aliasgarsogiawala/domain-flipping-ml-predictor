@@ -173,6 +173,16 @@ Open:
 http://localhost:3000
 ```
 
+## Demo flow
+
+If you are showing the project live, this is the cleanest path:
+
+1. Start on `/market` to show the dataset-backed side of the product
+2. Move to `/analyze` and break down one good domain and one bad domain
+3. Use comparable sales and the valuation layer to explain why the price is not a blind appraisal
+4. Save a domain to `/watchlist`
+5. Finish on `/assistant` to show AI-guided sourcing and questioning
+
 ## Training the model
 
 Create a virtual environment if you do not already have one:

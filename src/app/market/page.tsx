@@ -26,11 +26,11 @@ export default async function MarketPage() {
 
   return (
     <main className="pb-16">
-      <section className="grid-paper rounded-[30px] border border-black px-6 py-8 sm:px-8 lg:px-10">
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <section className="panel-white surface-ring rounded-[34px] px-6 py-8 sm:px-8 lg:px-10">
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="max-w-4xl">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-600">Market Intelligence</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-black sm:text-5xl">
+            <p className="section-eyebrow">Market Intelligence</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-black sm:text-5xl lg:text-6xl">
               Domain Market Intelligence
             </h1>
             <p className="mt-4 text-base leading-8 text-slate-700 sm:text-lg">
@@ -52,8 +52,8 @@ export default async function MarketPage() {
             </div>
           </div>
 
-          <div className="rounded-[26px] border border-black bg-white p-5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Research Actions</p>
+          <div className="panel-white-soft rounded-[28px] p-5">
+            <p className="metric-kicker">Research Actions</p>
             <div className="mt-4 grid gap-3">
               <Link
                 href="/analyze"
@@ -71,6 +71,23 @@ export default async function MarketPage() {
             <p className="mt-4 text-sm leading-7 text-slate-600">
               Use this page as the research layer, then move shortlisted names into analysis, chat, or watchlist workflows.
             </p>
+            <div className="mt-5 rounded-[22px] border border-black bg-white p-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Snapshot</p>
+              <div className="mt-3 grid gap-3 text-sm text-slate-700">
+                <div className="flex items-center justify-between">
+                  <span>Median sale price</span>
+                  <span className="data-mono font-semibold text-black">{formatCurrency(marketData.summary.medianSalePrice)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Most active TLD</span>
+                  <span className="data-mono font-semibold text-black">{marketData.summary.mostActiveTld}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Best median performer</span>
+                  <span className="data-mono font-semibold text-black">{marketData.summary.bestPerformingTldByMedianPrice}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -97,7 +114,7 @@ export default async function MarketPage() {
         </section>
       ) : null}
 
-      <section className="mt-8 panel-white rounded-[30px] p-6 sm:p-8">
+      <section className="mt-8 panel-white surface-ring rounded-[32px] p-6 sm:p-8">
         <div className="flex flex-col gap-2 border-b border-black pb-4">
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Latest Reported Sales</p>
           <h2 className="text-3xl font-semibold tracking-[-0.03em] text-black">Recently observed sales</h2>
@@ -117,7 +134,7 @@ export default async function MarketPage() {
       </section>
 
       <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_400px]">
-        <div className="panel-white rounded-[30px] p-6 sm:p-8">
+        <div className="panel-white surface-ring rounded-[32px] p-6 sm:p-8">
           <div className="border-b border-black pb-4">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">TLD Performance</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Dataset-backed extension trends</h2>
@@ -128,7 +145,7 @@ export default async function MarketPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="panel-white rounded-[30px] p-6">
+          <div className="panel-white rounded-[32px] p-6">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Market Snapshot</p>
             <div className="mt-4 space-y-3">
               <div className="rounded-[20px] border border-black bg-[var(--lime)] p-4">
@@ -155,7 +172,7 @@ export default async function MarketPage() {
             </div>
           </div>
 
-          <div className="panel-white rounded-[30px] p-6">
+          <div className="panel-white rounded-[32px] p-6">
             <div className="border-b border-black pb-4">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Price Distribution</p>
               <h3 className="mt-2 text-2xl font-semibold text-black">Market pricing bands</h3>
@@ -187,7 +204,7 @@ export default async function MarketPage() {
       ) : null}
 
       {marketData.anomalies.length ? (
-        <section className="mt-8 panel-white rounded-[30px] p-6 sm:p-8">
+        <section className="mt-8 panel-white surface-ring rounded-[32px] p-6 sm:p-8">
           <div className="border-b border-black pb-4">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Market Anomalies</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Unusual pricing pockets</h2>
@@ -196,7 +213,7 @@ export default async function MarketPage() {
             {marketData.anomalies.map((anomaly) => (
               <div
                 key={`${anomaly.type}-${anomaly.key}`}
-                className={`rounded-[24px] border border-black p-5 ${
+                className={`rounded-[24px] border border-black p-5 shadow-[0_14px_28px_rgba(17,17,17,0.06)] ${
                   anomaly.direction === "hot" ? "bg-[var(--lime)]" : "bg-white"
                 }`}
               >
@@ -204,6 +221,9 @@ export default async function MarketPage() {
                   {anomaly.type} anomaly
                 </p>
                 <p className="mt-3 data-mono text-xl font-semibold text-black">{anomaly.key}</p>
+                <p className="mt-2 text-sm font-medium text-black">
+                  {anomaly.direction === "hot" ? "Median pricing running hot" : "Median pricing clearing soft"}
+                </p>
                 <p className="mt-2 text-sm leading-7 text-slate-700">{anomaly.note}</p>
               </div>
             ))}
@@ -212,7 +232,7 @@ export default async function MarketPage() {
       ) : null}
 
       <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="panel-white rounded-[30px] p-6 sm:p-8">
+        <div className="panel-white surface-ring rounded-[32px] p-6 sm:p-8">
           <div className="border-b border-black pb-4">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Category Trends</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Category-level market signals</h2>
@@ -223,7 +243,7 @@ export default async function MarketPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="panel-white rounded-[30px] p-6">
+          <div className="panel-white rounded-[32px] p-6">
             <div className="border-b border-black pb-4">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Top TLD Benchmarks</p>
               <h3 className="mt-2 text-2xl font-semibold text-black">Most relevant extensions now</h3>
@@ -243,7 +263,7 @@ export default async function MarketPage() {
             </div>
           </div>
 
-          <div className="panel-white rounded-[30px] p-6">
+          <div className="panel-white rounded-[32px] p-6">
             <div className="border-b border-black pb-4">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Category Leaders</p>
               <h3 className="mt-2 text-2xl font-semibold text-black">Where demand is concentrating</h3>

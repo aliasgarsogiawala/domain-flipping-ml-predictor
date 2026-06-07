@@ -183,7 +183,7 @@ function WatchlistContent() {
   }
   return (
     <main className="pb-16">
-      <section className="relative overflow-hidden rounded-[32px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
+      <section className="panel-grid relative overflow-hidden rounded-[34px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -205,17 +205,17 @@ function WatchlistContent() {
             </p>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
-              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+              <div className="panel-dark-soft rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Tracked domains</p>
                 <p className="data-mono mt-3 text-3xl font-semibold text-white">{items.length}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Current watchlist entries.</p>
               </div>
-              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+              <div className="panel-dark-soft rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Taken domains</p>
                 <p className="data-mono mt-3 text-3xl font-semibold text-white">{takenCount}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Candidates requiring monitoring or outreach.</p>
               </div>
-              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+              <div className="panel-dark-soft rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Portfolio estimate</p>
                 <p className="data-mono mt-3 text-3xl font-semibold text-white">{formatInrFromUsd(totalEstimatedValue)}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Combined adjusted estimate across tracked names.</p>
@@ -223,7 +223,7 @@ function WatchlistContent() {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-white/10 bg-[#111318] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+          <div className="panel-dark rounded-[30px] p-6">
             <div className="border-b border-white/10 pb-4">
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Actions</p>
               <h2 className="mt-2 text-2xl font-semibold text-white">Watchlist controls</h2>
@@ -290,10 +290,10 @@ function WatchlistContent() {
       ) : (
         <>
           <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
-            <div className="panel-white rounded-[28px] p-6 sm:p-7">
+            <div className="panel-white surface-ring rounded-[30px] p-6 sm:p-7">
               <div className="flex flex-col gap-4 border-b border-black pb-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Watchlist Intelligence</p>
+                  <p className="section-eyebrow">Watchlist Intelligence</p>
                   <h2 className="mt-2 text-3xl font-semibold text-black">Active domain portfolio</h2>
                   <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-700">
                     Use this table to monitor acquisition timing, score drift, expiry windows, and estimated value across your shortlist.
@@ -323,7 +323,7 @@ function WatchlistContent() {
                 </div>
               </div>
 
-              <div className="mt-6 overflow-x-auto">
+              <div className="mt-6 overflow-hidden rounded-[26px] border border-black bg-white">
                 <table className="min-w-full text-left">
                   <thead>
                     <tr className="border-b border-black text-xs uppercase tracking-[0.18em] text-slate-600">
@@ -339,7 +339,7 @@ function WatchlistContent() {
                   </thead>
                   <tbody>
                     {items.map((it) => (
-                      <tr key={it.domain} className="border-b border-black/10 align-top last:border-b-0">
+                      <tr key={it.domain} className="border-b border-black/10 align-top last:border-b-0 hover:bg-[#f5f5f1]">
                         <td className="px-3 py-4">
                           <div className="data-mono text-sm font-semibold text-black">{it.domain}</div>
                           <div className="mt-1 text-xs text-slate-500">Registrar: {it.registrar ?? "-"}</div>
@@ -363,7 +363,7 @@ function WatchlistContent() {
                                 })
                               }
                               placeholder="Target buy $"
-                              className="data-mono min-h-[38px] w-full rounded-xl border border-black bg-white px-3 text-xs text-black outline-none"
+                              className="data-mono min-h-[38px] w-full rounded-xl border border-black bg-[#fbfbf8] px-3 text-xs text-black outline-none"
                             />
                             <input
                               defaultValue={it.maxBudgetUsd ?? ""}
@@ -373,7 +373,7 @@ function WatchlistContent() {
                                 })
                               }
                               placeholder="Max budget $"
-                              className="data-mono min-h-[38px] w-full rounded-xl border border-black bg-white px-3 text-xs text-black outline-none"
+                              className="data-mono min-h-[38px] w-full rounded-xl border border-black bg-[#fbfbf8] px-3 text-xs text-black outline-none"
                             />
                             <select
                               defaultValue={it.negotiationStance ?? "Disciplined"}
@@ -382,7 +382,7 @@ function WatchlistContent() {
                                   negotiationStance: event.target.value,
                                 })
                               }
-                              className="min-h-[38px] w-full rounded-xl border border-black bg-white px-3 text-xs text-black outline-none"
+                              className="min-h-[38px] w-full rounded-xl border border-black bg-[#fbfbf8] px-3 text-xs text-black outline-none"
                             >
                               <option>Disciplined</option>
                               <option>Opportunistic</option>
@@ -417,7 +417,7 @@ function WatchlistContent() {
           </section>
 
           <section className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="panel-white rounded-[28px] p-6 sm:p-7">
+            <div className="panel-white surface-ring rounded-[30px] p-6 sm:p-7">
               <div className="border-b border-black pb-4">
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Monitoring Notes</p>
                 <h3 className="mt-2 text-2xl font-semibold text-black">How to use this queue</h3>
@@ -438,7 +438,7 @@ function WatchlistContent() {
               </div>
             </div>
 
-            <div className="panel-white rounded-[28px] p-6">
+            <div className="panel-white rounded-[30px] p-6">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Monitoring Roadmap</p>
               <div className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
                 <p>Automatic alerts are planned for RDAP changes, resale posture shifts, expiry timing, and benchmark value movement.</p>

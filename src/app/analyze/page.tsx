@@ -383,7 +383,7 @@ export default function AnalyzePage() {
 
   return (
     <main className="pb-16">
-      <section className="relative overflow-hidden rounded-[32px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
+      <section className="panel-grid relative overflow-hidden rounded-[34px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -394,7 +394,7 @@ export default function AnalyzePage() {
         />
         <div className="relative grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
           <aside className="space-y-6">
-            <div className="rounded-[28px] border border-white/10 bg-[#111318] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+            <div className="panel-dark rounded-[30px] p-6">
               <div className="border-b border-white/10 pb-4">
                 <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Analysis Terminal</p>
                 <h1 className="mt-2 text-3xl font-semibold text-white">Domain investigation</h1>
@@ -437,7 +437,7 @@ export default function AnalyzePage() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-[#111318] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+            <div className="panel-dark rounded-[30px] p-6">
               <div className="border-b border-white/10 pb-4">
                 <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Comparison</p>
                 <h2 className="mt-2 text-xl font-semibold text-white">Screen against another domain</h2>
@@ -469,7 +469,7 @@ export default function AnalyzePage() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-[#111318] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+            <div className="panel-dark rounded-[30px] p-6">
               <div className="border-b border-white/10 pb-4">
                 <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Domain Battle</p>
                 <h2 className="mt-2 text-xl font-semibold text-white">Compare 3-5 domains at once</h2>
@@ -514,22 +514,22 @@ export default function AnalyzePage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+              <div className="panel-dark-soft rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Scoring stack</p>
                 <p className="data-mono mt-3 text-3xl font-semibold text-white">10 signals</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">TLD strength, brandability, market posture, and penalties.</p>
               </div>
-              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+              <div className="panel-dark-soft rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Market anchors</p>
                 <p className="data-mono mt-3 text-3xl font-semibold text-white">TLD median refs</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Curated benchmark values keep estimates believable.</p>
               </div>
-              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+              <div className="panel-dark-soft rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">RDAP visibility</p>
                 <p className="data-mono mt-3 text-3xl font-semibold text-white">Registrar-first</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Lifecycle timing and ownership metadata where available.</p>
               </div>
-              <div className="rounded-[24px] border border-white/10 bg-[#101726] p-5">
+              <div className="panel-dark-soft rounded-[24px] p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Monitoring flow</p>
                 <p className="data-mono mt-3 text-3xl font-semibold text-white">Watch ready</p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">Track taken assets and recheck them from the watchlist.</p>
@@ -542,7 +542,7 @@ export default function AnalyzePage() {
       {result ? (
         <>
           <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
-            <div className="panel-white rounded-[28px] p-6 sm:p-7">
+            <div className="panel-white surface-ring rounded-[30px] p-6 sm:p-7">
               <div className="flex flex-col gap-4 border-b border-black pb-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Active Domain</p>
@@ -569,7 +569,7 @@ export default function AnalyzePage() {
                 <StatCard
                   label="Estimated Value"
                   value={formatInrFromUsd(result.adjustedEstimatedValueUsd)}
-                  subtext={`Pricing confidence: ${result.valuationBasis.pricingConfidence}`}
+                  subtext={`Evidence-backed estimate · ${result.valuationBasis.pricingConfidence} confidence`}
                   mono
                 />
                 <StatCard label="Availability" value={result.availabilityStatus} subtext="RDAP-backed where available" />
@@ -901,6 +901,39 @@ export default function AnalyzePage() {
                       Avg similarity {result.valuationBasis.averageComparableSimilarity}/100
                     </span>
                   ) : null}
+                </div>
+
+                <div className="mb-4 grid gap-3 md:grid-cols-3">
+                  <div className="panel-white-soft rounded-[20px] p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">ML Baseline</p>
+                    <p className="data-mono mt-3 text-xl font-semibold text-black">
+                      {formatInrFromUsd(result.mlPredictedValueUsd)}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Model confidence: {result.mlPredictionConfidence ?? "Not available"}
+                    </p>
+                  </div>
+                  <div className="panel-white-soft rounded-[20px] p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Comparable Base</p>
+                    <p className="data-mono mt-3 text-xl font-semibold text-black">
+                      {formatInrFromUsd(
+                        result.valuationBasis.comparableWeightedMedianUsd ??
+                          result.valuationBasis.comparableMedianUsd,
+                      )}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Derived from the closest historical matches in the local sales dataset.
+                    </p>
+                  </div>
+                  <div className="panel-white-soft rounded-[20px] p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">TLD Benchmark</p>
+                    <p className="data-mono mt-3 text-xl font-semibold text-black">
+                      {formatInrFromUsd(result.tldMarketAnchorUsd)}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Acts as a reference layer, not a guaranteed market clearing price.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid gap-3">

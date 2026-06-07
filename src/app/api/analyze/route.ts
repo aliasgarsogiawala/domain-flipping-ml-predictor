@@ -10,7 +10,7 @@ import { lookupRDAP } from "@/lib/rdap";
 import { getMarketplaceStatus } from "@/lib/domainMarketplace";
 import { generateInvestmentReport } from "@/lib/investmentReport";
 import { findComparableSales } from "@/lib/marketData";
-import { predictDomainValueWithMl } from "@/lib/mlPredictor";
+import { predictDomainValueWithMl, type MlPredictionResult } from "@/lib/mlPredictor";
 import {
   applyAdvisoryValueAdjustment,
   generateOpenAIDomainInsights,
@@ -110,7 +110,7 @@ function summarizeComparableSales(comparableSales: Awaited<ReturnType<typeof fin
 }
 
 function getMlConfidenceWeight(
-  confidence: Awaited<ReturnType<typeof predictDomainValueWithMl>>["confidence"] | null | undefined,
+  confidence: MlPredictionResult["confidence"] | null | undefined,
 ) {
   if (confidence === "High") return 0.62;
   if (confidence === "Medium") return 0.48;
@@ -118,7 +118,7 @@ function getMlConfidenceWeight(
 }
 
 function getPricingConfidence(params: {
-  mlConfidence: Awaited<ReturnType<typeof predictDomainValueWithMl>>["confidence"] | null | undefined;
+  mlConfidence: MlPredictionResult["confidence"] | null | undefined;
   comparableSales: ComparableSalesSummary;
   score: number;
   availabilityStatus: "Available" | "Taken" | "Unknown";
@@ -145,7 +145,7 @@ function getPricingConfidence(params: {
 function adjustEstimatedValue(params: {
   rawEstimatedValueUsd: number;
   mlEstimatedValueUsd?: number | null;
-  mlPredictionConfidence?: Awaited<ReturnType<typeof predictDomainValueWithMl>>["confidence"] | null;
+  mlPredictionConfidence?: MlPredictionResult["confidence"] | null;
   tld: string;
   score: number;
   investmentScore: number;
@@ -435,14 +435,14 @@ function applyPremiumRealityCaps(params: {
 }) {
   let score = params.score;
   const features = params.mlPrediction?.extractedFeatures;
-  const eliteLikeShape =
-    Boolean(features) &&
-    features.wordCount === 1 &&
-    features.domainLength <= 7 &&
-    features.containsNumber === 0 &&
-    features.containsHyphen === 0 &&
-    features.pronounceabilityScore >= 68 &&
-    features.categoryHint !== "general";
+  const eliteLikeShape = features
+    ? features.wordCount === 1 &&
+      features.domainLength <= 7 &&
+      features.containsNumber === 0 &&
+      features.containsHyphen === 0 &&
+      features.pronounceabilityScore >= 68 &&
+      features.categoryHint !== "general"
+    : false;
 
   const strongAftermarketSupport =
     params.marketData.comparableSalesCount >= 4 &&
