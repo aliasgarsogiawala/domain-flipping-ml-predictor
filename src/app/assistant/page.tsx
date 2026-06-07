@@ -341,7 +341,7 @@ export default function AssistantPage() {
             </h1>
             <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
               Give the assistant a budget, keywords, and brand direction, or ask whether a specific domain is worth buying.
-              It uses your existing scoring engine, market snapshot, and OpenAI layer to stay grounded.
+              It uses your existing scoring engine, market snapshot, and AI layer to stay grounded.
             </p>
           </div>
 

@@ -2,18 +2,18 @@ import Link from "next/link";
 
 const capabilityCards = [
   {
-    title: "Valuation Engine",
-    copy: "Blend ML output, comparable sales, RDAP context, and TLD anchors into a believable pricing range.",
+    title: "Valuation engine",
+    copy: "Combines a trained ML model, comparable sales, RDAP history, and TLD benchmarks into one defensible price range.",
     accent: "lime",
   },
   {
-    title: "Market Intelligence",
-    copy: "Move from a single appraisal number to extension-level performance, category movement, and anomaly detection.",
+    title: "Market data",
+    copy: "Works from reported sales, TLD medians, and category trends in a local dataset instead of a single unexplained number.",
     accent: "purple",
   },
   {
-    title: "Acquisition Workflow",
-    copy: "Turn a score into a target buy price, budget stance, watchlist decision, and negotiation posture.",
+    title: "Acquisition workflow",
+    copy: "Turns a score into a target price, a budget, a watchlist entry, and a clear buy, watch, or avoid call.",
     accent: "white",
   },
 ];
@@ -47,57 +47,57 @@ const benchmarkCards = [
 
 const bentoCards = [
   {
-    label: "Acquisition Logic",
-    title: "Judge why a domain is worth touching before you spend time on outreach.",
-    copy:  "The product keeps score, value, risk, registrar timing, and resale posture in the same working view.",
+    label: "Acquisition logic",
+    title: "Decide whether a name is worth your time before you reach out.",
+    copy:  "Score, value, risk, registrar timing, and resale status stay in one view, so the call is grounded in evidence.",
     span:  "lg:col-span-2",
   },
   {
     label: "Comparison",
-    title: "Battle-test names side by side.",
-    copy:  "Run direct comparison or 3-5 domain battle mode and see winners for liquidity, brand strength, and acquisition posture.",
+    title: "Compare names side by side.",
+    copy:  "Run a head-to-head or a 3–5 domain battle and see which name leads on liquidity, brand strength, and acquisition fit.",
     span:  "",
   },
   {
     label: "Watchlist",
-    title: "Treat domains like a live pipeline.",
-    copy:  "Recheck expiry windows, watch value drift, and keep a buy price and stance on every monitored name.",
+    title: "Track domains like a pipeline.",
+    copy:  "Monitor expiry windows and value drift, and keep a target price and stance on every name you follow.",
     span:  "",
   },
   {
-    label: "Market Layer",
-    title: "Bring reported sales into the same workflow.",
-    copy:  "TLD medians, category breakdowns, saved market screens, and anomaly flags keep the analysis grounded in observed history.",
+    label: "Market layer",
+    title: "Ground every estimate in reported sales.",
+    copy:  "TLD medians, category breakdowns, saved screens, and outlier flags keep the analysis tied to observed history.",
     span:  "lg:col-span-2",
   },
 ];
 
 const workflowSteps = [
-  ["01", "Source",  "Use the assistant or market page to surface names and patterns worth screening."],
-  ["02", "Analyze", "Check score layers, valuation evidence, and comparable sales before acting."],
-  ["03", "Decide",  "Set a target buy price, max budget, and recommendation stance."],
-  ["04", "Monitor", "Move the domain into watchlist when timing matters more than immediate purchase."],
+  ["01", "Source",  "Use the assistant or market page to surface names worth screening."],
+  ["02", "Analyze", "Review the score breakdown, valuation evidence, and comparable sales."],
+  ["03", "Decide",  "Set a target price, a budget, and a buy, watch, or avoid call."],
+  ["04", "Monitor", "Move the name to your watchlist when timing matters more than buying now."],
 ];
 
 const systemPanels = [
-  ["Comparable Sales",  "Nearest past sales for the same TLD, similar length, and matching category shape."],
-  ["Value Projection",  "Scenario range over time to communicate upside and uncertainty without overpromising returns."],
-  ["Investment Report", "Deterministic recommendation layer plus AI-assisted explanation for buy, watch, or avoid."],
-  ["Market Screens",    "Save reusable views like .ai startup names under a defined pricing band."],
+  ["Comparable sales",  "Nearest reported sales by TLD, length, and category shape, each with a similarity score."],
+  ["Value projection",  "A scenario range over time that shows upside and uncertainty without promising returns."],
+  ["Investment report", "A rule-based buy, watch, or avoid call alongside an AI-written explanation."],
+  ["Market screens",    "Save reusable views, such as .ai startup names within a set price band."],
 ];
 
 const faqRows = [
   [
-    "Why does this feel different from a registrar search?",
-    "Because the product is built around evidence and workflow: comparable sales, watchlist posture, acquisition planning, and market context sit next to the appraisal.",
+    "How is this different from a registrar search?",
+    "A registrar tells you whether a name is free. This adds the parts that decide whether it is worth buying: comparable sales, a blended valuation, ownership history, and a watchlist to track it over time.",
   ],
   [
-    "What makes the value estimate believable?",
-    "The value stack is blended from ML, nearest observed sales, TLD anchors, and risk-aware adjustments instead of just one raw formula.",
+    "How is the value estimate produced?",
+    "It blends a trained ML model, the nearest reported sales, and TLD benchmarks, then applies risk-aware caps. Each figure is shown with the evidence behind it.",
   ],
   [
-    "Where does the product go next?",
-    "More live aftermarket references, stronger comparable weighting, and deeper watchlist automation will make the research loop even tighter.",
+    "Is the data real?",
+    "Valuations use a local dataset of reported domain sales plus live RDAP lookups. The sample figures on this page are illustrative — run a domain to see real output.",
   ],
 ];
 
@@ -118,7 +118,7 @@ export default function Home() {
               <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--lime)]" />
                 <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">
-                  Premium domain intelligence workspace
+                  Open-source domain research
                 </span>
               </div>
 
@@ -127,7 +127,7 @@ export default function Home() {
               </h1>
 
               <p className="max-w-2xl text-[1.0625rem] leading-[1.8] text-slate-300/90">
-                DomainFlip AI turns valuation, availability, comparable sales, resale posture, and acquisition workflow into one product-grade research surface.
+                DomainFlip AI brings valuation, availability, comparable sales, resale status, and acquisition planning into one place — so you can judge a name, not just look it up.
               </p>
             </div>
 
@@ -168,7 +168,7 @@ export default function Home() {
             <div className="panel-dark rounded-[32px] p-6">
               <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-5">
                 <div>
-                  <p className="section-eyebrow text-slate-500">Live Analysis Chain</p>
+                  <p className="section-eyebrow text-slate-500">Example Analysis Chain</p>
                   <h2 className="mt-2.5 text-[1.4rem] font-semibold leading-snug text-white">
                     Value formation trace
                   </h2>
@@ -212,7 +212,7 @@ export default function Home() {
         <div className="panel-white surface-ring rounded-[34px] p-6 sm:p-8">
           <div className="flex flex-col gap-3 border-b pb-5 subtle-divider sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="section-eyebrow">Live Workspace</p>
+              <p className="section-eyebrow">Sample Workspace</p>
               <h2 className="mt-2.5 text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.04em] text-black">
                 Candidate pipeline with pricing, posture, and next action
               </h2>
@@ -400,10 +400,10 @@ export default function Home() {
           </h3>
           <div className="mt-5 space-y-2.5">
             {[
-              "Domain value is not treated as a magical number.",
-              "Every important price is paired with context and evidence.",
-              "The watchlist behaves like an operating queue, not a bookmark drawer.",
-              "The market page makes the product feel dataset-backed, not decorative.",
+              "Domain value is shown as a range with evidence, not a single mystery number.",
+              "Every price is paired with the context and data behind it.",
+              "The watchlist works like a pipeline, not a bookmark folder.",
+              "The market page is backed by a real sales dataset, not placeholder charts.",
             ].map((point) => (
               <div
                 key={point}
@@ -422,7 +422,7 @@ export default function Home() {
           <div>
             <p className="section-eyebrow">Common Questions</p>
             <h2 className="mt-2.5 text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.04em] text-black">
-              What the homepage should make clear in a few seconds
+              The questions people ask first
             </h2>
             <div className="mt-6 space-y-3.5">
               {faqRows.map(([question, answer]) => (

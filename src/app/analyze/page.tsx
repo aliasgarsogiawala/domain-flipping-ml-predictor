@@ -132,6 +132,23 @@ function badgeForAiConfidence(value: OpenAIDomainInsights["confidence"]) {
   return "bg-white text-black border-black";
 }
 
+function aiProviderMeta(insights: OpenAIDomainInsights) {
+  if (insights.provider === "gemini") {
+    return {
+      label: "Live AI",
+      detail: insights.model ?? "Gemini",
+      dot: "bg-[var(--success)]",
+      className: "bg-black text-white border-black",
+    };
+  }
+  return {
+    label: "Heuristic engine",
+    detail: "AI offline · deterministic fallback",
+    dot: "bg-[var(--warning)]",
+    className: "bg-white text-black border-black",
+  };
+}
+
 function badgeForPricingConfidence(value: ApiResult["valuationBasis"]["pricingConfidence"]) {
   if (value === "High") return "bg-[var(--lime)] text-black border-black";
   if (value === "Medium") return "bg-[var(--purple-bar)] text-black border-black";
@@ -151,6 +168,46 @@ function riskRank(value: ApiResult["riskLevel"]) {
   return 2;
 }
 
+function ScoreRing({ score, verdict }: { score: number; verdict: string }) {
+  const clamped = Math.max(0, Math.min(100, score));
+  const radius = 52;
+  const circumference = 2 * Math.PI * radius;
+  const dash = (clamped / 100) * circumference;
+  const stroke =
+    clamped >= 70 ? "var(--lime)" : clamped >= 50 ? "var(--purple-bar)" : "#0f0f0f";
+
+  return (
+    <div className="flex items-center gap-4 rounded-[24px] border border-black bg-white px-5 py-4">
+      <div className="relative h-[128px] w-[128px] shrink-0">
+        <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
+          <circle cx="64" cy="64" r={radius} fill="none" stroke="rgba(15,15,15,0.10)" strokeWidth="12" />
+          <circle
+            cx="64"
+            cy="64"
+            r={radius}
+            fill="none"
+            stroke={stroke}
+            strokeWidth="12"
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${circumference}`}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="data-mono text-3xl font-bold leading-none text-black">{clamped}</span>
+          <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">/ 100</span>
+        </div>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Final Score</p>
+        <p className="mt-2 text-lg font-semibold leading-tight text-black">{verdict}</p>
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          Blended rule, market, brand, and ML signals.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({
   label,
   value,
@@ -167,6 +224,44 @@ function StatCard({
       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">{label}</p>
       <p className={`mt-3 text-2xl font-semibold text-black ${mono ? "data-mono" : ""}`}>{value}</p>
       {subtext ? <p className="mt-2 text-sm leading-6 text-slate-600">{subtext}</p> : null}
+    </div>
+  );
+}
+
+function SignalMeter({
+  label,
+  value,
+  hint,
+  invert = false,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  invert?: boolean;
+}) {
+  const clamped = Math.max(0, Math.min(100, value));
+  // For "good" signals high is positive; for risk (invert) high is negative.
+  const positive = invert ? clamped < 45 : clamped >= 65;
+  const caution = invert ? clamped >= 45 && clamped < 68 : clamped >= 45 && clamped < 65;
+  const barColor = positive
+    ? "bg-[var(--lime)]"
+    : caution
+      ? "bg-[var(--purple-bar)]"
+      : "bg-black";
+
+  return (
+    <div className="rounded-2xl border border-black bg-white px-4 py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-xs font-semibold text-black">{label}</p>
+        <p className="data-mono text-sm font-bold text-black">
+          {clamped}
+          <span className="ml-0.5 text-slate-400">/100</span>
+        </p>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/10">
+        <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${Math.max(4, clamped)}%` }} />
+      </div>
+      {hint ? <p className="mt-2 text-[11px] leading-5 text-slate-500">{hint}</p> : null}
     </div>
   );
 }
@@ -561,21 +656,23 @@ export default function AnalyzePage() {
                     {result.investmentReport.summary}
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForAvailability(result.availabilityStatus)}`}>
-                    {result.availabilityStatus}
-                  </span>
-                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRecommendation(result.investmentReport.recommendation)}`}>
-                    {result.investmentReport.recommendation}
-                  </span>
-                  <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRisk(result.riskLevel)}`}>
-                    Risk: {result.riskLevel}
-                  </span>
+                <div className="flex flex-col items-stretch gap-3 sm:items-end">
+                  <ScoreRing score={result.score} verdict={result.verdict} />
+                  <div className="flex flex-wrap gap-3 sm:justify-end">
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForAvailability(result.availabilityStatus)}`}>
+                      {result.availabilityStatus}
+                    </span>
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRecommendation(result.investmentReport.recommendation)}`}>
+                      {result.investmentReport.recommendation}
+                    </span>
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForRisk(result.riskLevel)}`}>
+                      Risk: {result.riskLevel}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-                <StatCard label="Final Score" value={`${result.score}`} subtext={result.verdict} mono />
+              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                   label="Estimated Value"
                   value={formatInrFromUsd(result.adjustedEstimatedValueUsd)}
@@ -705,9 +802,13 @@ export default function AnalyzePage() {
 
               <SectionCard
                 eyebrow="AI Advisory"
-                title="OpenAI-assisted market summary"
+                title="AI-assisted market summary"
                 aside={
                   <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${aiProviderMeta(result.openaiInsights).className}`}>
+                      <span className={`h-2 w-2 rounded-full ${aiProviderMeta(result.openaiInsights).dot}`} />
+                      {aiProviderMeta(result.openaiInsights).label}
+                    </span>
                     <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForAiConfidence(result.openaiInsights.confidence)}`}>
                       AI confidence: {result.openaiInsights.confidence}
                     </span>
@@ -717,6 +818,47 @@ export default function AnalyzePage() {
                   </div>
                 }
               >
+                <div className="mb-5 panel-white-soft rounded-[22px] p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">AI Signal Scores</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="data-mono text-[11px] text-slate-500">{aiProviderMeta(result.openaiInsights).detail}</span>
+                      {result.openaiInsights.eliteWordSignal ? (
+                        <span className="inline-flex rounded-full border border-black bg-[var(--lime)] px-2.5 py-1 text-[11px] font-semibold text-black">
+                          Elite-word signal
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full border border-black bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                          No elite-word signal
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <SignalMeter
+                      label="Premium Feel"
+                      value={result.openaiInsights.premiumFeelScore}
+                      hint="How elite and broadly desirable the name reads."
+                    />
+                    <SignalMeter
+                      label="End-User Demand"
+                      value={result.openaiInsights.endUserDemandScore}
+                      hint="Likelihood real businesses would want this name."
+                    />
+                    <SignalMeter
+                      label="Aftermarket Strength"
+                      value={result.openaiInsights.aftermarketStrengthScore}
+                      hint="Resale liquidity based on comps and category."
+                    />
+                    <SignalMeter
+                      label="Negotiation Risk"
+                      value={result.openaiInsights.negotiationRiskScore}
+                      hint="Lower is better — friction to acquire the name."
+                      invert
+                    />
+                  </div>
+                </div>
+
                 <div className="grid gap-4 xl:grid-cols-2">
                   <div className="panel-white-soft rounded-[22px] p-5">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">AI Summary</p>
@@ -987,7 +1129,7 @@ export default function AnalyzePage() {
                 </div>
               </SectionCard>
 
-              <SectionCard eyebrow="Valuation Layer" title="Benchmark normalized estimates">
+              <SectionCard eyebrow="Valuation Layer" title="How the estimate is built">
                 <div className="mb-4 flex flex-wrap gap-2">
                   <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${badgeForPricingConfidence(result.valuationBasis.pricingConfidence)}`}>
                     Pricing confidence: {result.valuationBasis.pricingConfidence}
@@ -1003,62 +1145,38 @@ export default function AnalyzePage() {
                   ) : null}
                 </div>
 
-                <div className="mb-4 grid gap-3 md:grid-cols-3">
-                  <div className="panel-white-soft rounded-[20px] p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">AI Initial Estimate</p>
-                    <p className="data-mono mt-3 text-xl font-semibold text-black">
-                      {formatInrFromUsd(result.aiInitialEstimateUsd)}
+                <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                  <div className="panel-white-soft min-w-0 rounded-[20px] p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Estimated Value</p>
+                    <p className="data-mono mt-3 break-words text-xl font-semibold leading-tight text-black">
+                      {formatInrFromUsd(result.adjustedEstimatedValueUsd)}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      AI-led starting value before comp and benchmark blending.
+                      Final blended estimate after ML, comparable, and risk-aware adjustments.
                     </p>
                   </div>
-                  <div className="panel-white-soft rounded-[20px] p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Comparable Base</p>
-                    <p className="data-mono mt-3 text-xl font-semibold text-black">
-                      {formatInrFromUsd(
-                        result.valuationBasis.comparableWeightedMedianUsd ??
-                          result.valuationBasis.comparableMedianUsd,
-                      )}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Derived from the closest historical matches in the local sales dataset.
-                    </p>
-                  </div>
-                  <div className="panel-white-soft rounded-[20px] p-4">
+                  <div className="panel-white-soft min-w-0 rounded-[20px] p-4">
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">TLD Benchmark</p>
-                    <p className="data-mono mt-3 text-xl font-semibold text-black">
+                    <p className="data-mono mt-3 break-words text-xl font-semibold leading-tight text-black">
                       {formatInrFromUsd(result.tldMarketAnchorUsd)}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Acts as a reference layer, not a guaranteed market clearing price.
+                      Reference median for this extension — not a guaranteed clearing price.
                     </p>
                   </div>
                 </div>
 
                 <div className="grid gap-3">
-                  <DetailRow label="Raw appraisal signal" value={formatInrFromUsd(result.estimatedValueUsd)} mono />
-                  <DetailRow label="AI initial estimate" value={formatInrFromUsd(result.aiInitialEstimateUsd)} mono />
-                  <DetailRow label="AI confidence" value={result.openaiInsights.confidence} />
+                  <DetailRow label="Estimated value" value={formatInrFromUsd(result.adjustedEstimatedValueUsd)} mono />
+                  <DetailRow label="Model-adjusted value" value={formatInrFromUsd(result.modelAdjustedEstimatedValueUsd)} mono />
                   <DetailRow label="ML reference" value={formatInrFromUsd(result.mlPredictedValueUsd)} mono />
                   <DetailRow label="ML confidence" value={result.mlPredictionConfidence ?? "Not available"} />
-                  <DetailRow label="Model-adjusted value" value={formatInrFromUsd(result.modelAdjustedEstimatedValueUsd)} mono />
-                  <DetailRow label="AI-adjusted value" value={formatInrFromUsd(result.adjustedEstimatedValueUsd)} mono />
-                  <DetailRow
-                    label="Comparable median"
-                    value={formatInrFromUsd(result.valuationBasis.comparableMedianUsd)}
-                    mono
-                  />
-                  <DetailRow
-                    label="Weighted comparable median"
-                    value={formatInrFromUsd(result.valuationBasis.comparableWeightedMedianUsd)}
-                    mono
-                  />
+                  <DetailRow label="AI confidence" value={result.openaiInsights.confidence} />
                   <DetailRow label="TLD market benchmark" value={formatInrFromUsd(result.tldMarketAnchorUsd)} mono />
                   <DetailRow label="Liquidity score" value={`${result.liquidityScore}`} mono />
                 </div>
                 <p className="mt-4 text-sm leading-7 text-slate-700">
-                  Final value now leans on three evidence layers: the ML baseline, the nearest observed comparable sales, and the TLD benchmark. When comparable support is weak, the benchmark influence is intentionally reduced so low-conviction names stay conservative.
+                  The estimate blends the ML baseline, the nearest comparable sales, and the TLD benchmark, with risk-aware caps. When comparable support is weak, the estimate stays close to conservative reference values rather than chasing outliers.
                 </p>
               </SectionCard>
 

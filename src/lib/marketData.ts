@@ -259,6 +259,20 @@ function normalizeNumber(value: string | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function dedupeRecords(records: MarketSaleRecord[]) {
+  const seen = new Set<string>();
+  const unique: MarketSaleRecord[] = [];
+
+  for (const record of records) {
+    const key = `${record.domain}|${record.salePriceUsd}|${record.saleDate ?? ""}|${record.venue}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(record);
+  }
+
+  return unique;
+}
+
 function computeMedian(values: number[]) {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -363,7 +377,7 @@ async function loadSnapshotData() {
   const parsed = JSON.parse(content) as MarketDataResult;
 
   return {
-    latestReportedSales: parsed.latestReportedSales ?? [],
+    latestReportedSales: dedupeRecords(parsed.latestReportedSales ?? []),
     summary: parsed.summary,
     tldPerformance: parsed.tldPerformance ?? [],
     categoryBreakdown: parsed.categoryBreakdown ?? [],
@@ -619,7 +633,7 @@ export async function findComparableSales(domain: string, limit = 5): Promise<Co
   const targetCategory = inferMarketCategory(normalizedDomain);
   const targetWordCount = inferWordCount(normalizedDomain);
 
-  return records
+  const scored = records
     .filter((record) => record.domain !== normalizedDomain)
     .map((record) => {
       const { score, reasons } = scoreComparableMatch({
@@ -642,8 +656,20 @@ export async function findComparableSales(domain: string, limit = 5): Promise<Co
         return right.similarityScore - left.similarityScore;
       }
       return right.salePriceUsd - left.salePriceUsd;
-    })
-    .slice(0, limit);
+    });
+
+  // Dedupe by domain so the same sale never appears twice. The list is already
+  // sorted best-first, so the first occurrence of each domain is the strongest match.
+  const seen = new Set<string>();
+  const unique: ComparableSaleMatch[] = [];
+  for (const record of scored) {
+    if (seen.has(record.domain)) continue;
+    seen.add(record.domain);
+    unique.push(record);
+    if (unique.length >= limit) break;
+  }
+
+  return unique;
 }
 
 export async function loadMarketData(): Promise<MarketDataResult> {
@@ -666,8 +692,10 @@ export async function loadMarketData(): Promise<MarketDataResult> {
     .then(() => true)
     .catch(() => false);
 
-    const records = (hasMasterDataset ? await loadMasterRecords() : await loadRawRecords())
-      .filter((record) => record.salePriceUsd > 0)
+    const records = dedupeRecords(
+      (hasMasterDataset ? await loadMasterRecords() : await loadRawRecords())
+        .filter((record) => record.salePriceUsd > 0),
+    )
       .sort((a, b) => {
         if (a.saleDateTimestamp && b.saleDateTimestamp) {
           return b.saleDateTimestamp - a.saleDateTimestamp;
