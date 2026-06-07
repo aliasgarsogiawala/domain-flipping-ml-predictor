@@ -26,6 +26,25 @@ For how it all works under the hood, see [`docs/ARCHITECTURE.md`](docs/ARCHITECT
 
 The estimate is intentionally never one signal. It blends the local ML prediction, the nearest comparable sales, curated TLD benchmarks, rule-based quality, and AI demand signals, then passes through risk-aware caps so weak-evidence names don't inherit unrealistic values. The full chain is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#the-valuation-chain). Values display in INR; the dataset stays USD-backed because the source sales are in USD.
 
+## ML model snapshot
+
+The Python model is a supporting valuation signal, not a standalone source of truth. It helps anchor the estimate, but the final number is still blended with comparable sales, TLD benchmarks, risk caps, and AI demand signals.
+
+Current checked-in model snapshot:
+
+| Metric | Value |
+| --- | --- |
+| Model type | `RandomForestRegressor` |
+| Training rows | `350,309` historical sale rows |
+| Primary evaluation metric | Mean Absolute Error (MAE) |
+| MAE | `$3,828.61 USD` |
+
+Why MAE instead of "accuracy":
+
+- This is a **regression** model, so there isn't a meaningful classification-style accuracy percentage.
+- MAE is easier to interpret here: on the held-out test set, the model's prediction was off by about **$3.8k USD on average**.
+- Domain prices are heavily skewed by outlier premium sales, so the model is best used as a **reference signal**, not as a final appraisal oracle.
+
 ## Tech stack
 
 | Layer | Tech |
