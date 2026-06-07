@@ -63,9 +63,9 @@ export default function ValueProjectionChart({ projection }: Props) {
               ];
             }}
           />
-          <Area type="monotone" dataKey="high" stroke="#8a8a82" fill="#f2f2f0" strokeWidth={1.5} />
-          <Area type="monotone" dataKey="low" stroke="#b3b3ab" fill="#e7e7e2" strokeWidth={1.5} />
-          <Area type="monotone" dataKey="expected" stroke="#111111" fill="#ccff3f" strokeWidth={2.5} />
+          <Area type="monotone" dataKey="high" stroke="#8a8a82" fill="#f4ede5" strokeWidth={1.5} />
+          <Area type="monotone" dataKey="low" stroke="#b3b3ab" fill="#efe2d3" strokeWidth={1.5} />
+          <Area type="monotone" dataKey="expected" stroke="#111111" fill="#f48120" strokeWidth={2.5} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

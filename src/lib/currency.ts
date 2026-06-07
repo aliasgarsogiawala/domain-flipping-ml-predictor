@@ -1,7 +1,10 @@
 const USD_TO_INR = 83;
+const MAX_DISPLAYABLE_USD = 50_000_000;
 
 export function usdToInr(value: number | null | undefined) {
   if (value === null || value === undefined) return null;
+  if (!Number.isFinite(value)) return null;
+  if (Math.abs(value) > MAX_DISPLAYABLE_USD) return null;
   return Math.round(value * USD_TO_INR);
 }
 

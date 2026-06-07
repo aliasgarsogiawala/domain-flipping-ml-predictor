@@ -101,7 +101,7 @@ export default function DomainComparisonChart({ primary, secondary }: Props) {
             }}
           />
           <Legend wrapperStyle={{ color: "#111111" }} />
-          <Bar dataKey={primary.domain} fill="#ccff3f" stroke="#111111" radius={[6, 6, 0, 0]} />
+          <Bar dataKey={primary.domain} fill="#f48120" stroke="#111111" radius={[6, 6, 0, 0]} />
           <Bar dataKey={secondary.domain} fill="#7c86e8" stroke="#111111" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>

@@ -14,6 +14,20 @@ import pandas as pd
 from ml.features import extract_domain_features
 
 MODEL_PATH = Path(__file__).resolve().parent / "domain_value_model.pkl"
+MAX_REASONABLE_PREDICTION_USD = 10_000_000.0
+
+
+def _safe_inverse_transform(value: float, transform: str | None) -> float:
+    if transform == "log1p":
+        clipped = float(np.clip(value, 0.0, np.log1p(MAX_REASONABLE_PREDICTION_USD)))
+        result = float(np.expm1(clipped))
+    else:
+        result = float(value)
+
+    if not np.isfinite(result):
+        return 0.0
+
+    return float(np.clip(result, 0.0, MAX_REASONABLE_PREDICTION_USD))
 
 
 def _confidence_from_tree_dispersion(expected_value: float, tree_predictions: np.ndarray) -> str:
@@ -42,18 +56,24 @@ def load_model_bundle(model_path: Path | str = MODEL_PATH) -> dict[str, Any]:
 def predict_domain_value(domain: str, model_path: Path | str = MODEL_PATH) -> dict[str, Any]:
     bundle = load_model_bundle(model_path)
     pipeline = bundle["pipeline"]
+    target_transform = bundle.get("target_transform")
 
     feature_row = extract_domain_features(domain)
     frame = pd.DataFrame([feature_row.__dict__])
 
-    predicted_value = float(np.expm1(pipeline.predict(frame)[0]))
-    predicted_value = round(max(predicted_value, 0.0), 2)
+    predicted_value = round(
+        _safe_inverse_transform(float(pipeline.predict(frame)[0]), target_transform),
+        2,
+    )
 
     preprocessor = pipeline.named_steps["preprocessor"]
     regressor = pipeline.named_steps["regressor"]
     transformed = preprocessor.transform(frame)
     tree_predictions = np.asarray(
-        [np.expm1(estimator.predict(transformed)[0]) for estimator in regressor.estimators_],
+        [
+            _safe_inverse_transform(float(estimator.predict(transformed)[0]), target_transform)
+            for estimator in regressor.estimators_
+        ],
         dtype=float,
     )
 

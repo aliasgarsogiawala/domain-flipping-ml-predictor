@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
+import DomainSignalRadarChart from "@/components/DomainSignalRadarChart";
+import DomainTrendChart from "@/components/DomainTrendChart";
 import DomainComparisonChart from "@/components/DomainComparisonChart";
 import ValueProjectionChart from "@/components/ValueProjectionChart";
 import { formatInrFromUsd } from "@/lib/currency";
@@ -27,6 +29,7 @@ type ApiResult = {
   marketScore: number;
   availabilityStatus: "Available" | "Taken" | "Unknown";
   estimatedValueUsd: number;
+  aiInitialEstimateUsd: number;
   mlPredictedValueUsd: number | null;
   mlPredictionConfidence: "Low" | "Medium" | "High" | null;
   modelAdjustedEstimatedValueUsd: number;
@@ -133,6 +136,13 @@ function badgeForPricingConfidence(value: ApiResult["valuationBasis"]["pricingCo
   if (value === "High") return "bg-[var(--lime)] text-black border-black";
   if (value === "Medium") return "bg-[var(--purple-bar)] text-black border-black";
   return "bg-white text-black border-black";
+}
+
+function badgeForTrajectory(value: ValueProjectionResult["trajectory"]) {
+  if (value === "Momentum Upside") return "bg-[var(--lime)] text-black border-black";
+  if (value === "Gradual Upside") return "bg-[#ffd9b8] text-black border-black";
+  if (value === "Flat") return "bg-white text-black border-black";
+  return "bg-[#ffd3d3] text-black border-black";
 }
 
 function riskRank(value: ApiResult["riskLevel"]) {
@@ -592,15 +602,105 @@ export default function AnalyzePage() {
                 eyebrow="Value Projection"
                 title="Projected scenario range"
                 aside={
-                  <div className="rounded-full border border-black bg-[var(--lime)] px-3 py-1 text-sm font-semibold text-black">
-                    Confidence: {result.valueProjection.confidence}
+                  <div className="flex flex-wrap gap-2">
+                    <div className={`rounded-full border px-3 py-1 text-sm font-semibold ${badgeForTrajectory(result.valueProjection.trajectory)}`}>
+                      {result.valueProjection.trajectory}
+                    </div>
+                    <div className="rounded-full border border-black bg-[var(--lime)] px-3 py-1 text-sm font-semibold text-black">
+                      Confidence: {result.valueProjection.confidence}
+                    </div>
                   </div>
                 }
               >
+                <div className="mb-5 grid gap-4 md:grid-cols-3">
+                  <StatCard
+                    label="3Y Expected Change"
+                    value={`${result.valueProjection.expectedChangePercent > 0 ? "+" : ""}${result.valueProjection.expectedChangePercent}%`}
+                    subtext="Expected change from the present estimate under the current signal mix."
+                    mono
+                  />
+                  <StatCard
+                    label="Outlook Score"
+                    value={`${result.valueProjection.domainOutlookScore}`}
+                    subtext="Composite forward-looking posture from ML, comparables, and AI helper signals."
+                    mono
+                  />
+                  <StatCard
+                    label="Projection Range"
+                    value={formatInrFromUsd(result.valueProjection.points.at(-1)?.expected ?? result.adjustedEstimatedValueUsd)}
+                    subtext={`3Y expected midpoint · low ${formatInrFromUsd(result.valueProjection.points.at(-1)?.low ?? result.adjustedEstimatedValueUsd)}`}
+                    mono
+                  />
+                </div>
                 <ValueProjectionChart projection={result.valueProjection} />
+                <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Trend Drivers</p>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                      {result.valueProjection.trendDrivers.length ? (
+                        result.valueProjection.trendDrivers.map((item) => (
+                          <li key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                            {item}
+                          </li>
+                        ))
+                      ) : (
+                        <li>No strong upside drivers were detected beyond the current base value.</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div className="panel-white-soft rounded-[22px] p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Projection Risks</p>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                      {result.valueProjection.riskDrivers.length ? (
+                        result.valueProjection.riskDrivers.map((item) => (
+                          <li key={item} className="border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                            {item}
+                          </li>
+                        ))
+                      ) : (
+                        <li>Downside pressure is limited relative to the current evidence set.</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
                 <p className="mt-4 text-sm leading-7 text-slate-700">
-                  Projection is estimated from scoring signals and market data. It is not a guaranteed resale outcome.
+                  Projection is estimated from scoring signals, comparable-sale support, ML features, and AI market posture. It is not a guaranteed resale outcome.
                 </p>
+              </SectionCard>
+
+              <SectionCard eyebrow="Trend Graphs" title="Domain-specific demand and signal posture">
+                <div className="grid gap-6 xl:grid-cols-2">
+                  <div className="panel-white-soft rounded-[24px] p-5">
+                    <div className="border-b border-black pb-4">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Buyer Demand Over Time</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-700">
+                        A forward view of demand momentum and conviction based on current comps, AI demand scoring, and model confidence.
+                      </p>
+                    </div>
+                    <div className="mt-4">
+                      <DomainTrendChart projection={result.valueProjection} />
+                    </div>
+                  </div>
+                  <div className="panel-white-soft rounded-[24px] p-5">
+                    <div className="border-b border-black pb-4">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-600">Signal Balance</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-700">
+                        Shows where this domain is strong right now across score quality, buyer demand, market posture, liquidity, and risk resistance.
+                      </p>
+                    </div>
+                    <div className="mt-4">
+                      <DomainSignalRadarChart
+                        domain={result.domain}
+                        score={result.score}
+                        investmentScore={result.investmentScore}
+                        brandPrestigeScore={result.brandPrestigeScore}
+                        marketScore={result.marketScore}
+                        liquidityScore={result.liquidityScore}
+                        riskLevel={result.riskLevel}
+                      />
+                    </div>
+                  </div>
+                </div>
               </SectionCard>
 
               <SectionCard
@@ -905,12 +1005,12 @@ export default function AnalyzePage() {
 
                 <div className="mb-4 grid gap-3 md:grid-cols-3">
                   <div className="panel-white-soft rounded-[20px] p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">ML Baseline</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">AI Initial Estimate</p>
                     <p className="data-mono mt-3 text-xl font-semibold text-black">
-                      {formatInrFromUsd(result.mlPredictedValueUsd)}
+                      {formatInrFromUsd(result.aiInitialEstimateUsd)}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Model confidence: {result.mlPredictionConfidence ?? "Not available"}
+                      AI-led starting value before comp and benchmark blending.
                     </p>
                   </div>
                   <div className="panel-white-soft rounded-[20px] p-4">
@@ -938,7 +1038,9 @@ export default function AnalyzePage() {
 
                 <div className="grid gap-3">
                   <DetailRow label="Raw appraisal signal" value={formatInrFromUsd(result.estimatedValueUsd)} mono />
-                  <DetailRow label="ML baseline" value={formatInrFromUsd(result.mlPredictedValueUsd)} mono />
+                  <DetailRow label="AI initial estimate" value={formatInrFromUsd(result.aiInitialEstimateUsd)} mono />
+                  <DetailRow label="AI confidence" value={result.openaiInsights.confidence} />
+                  <DetailRow label="ML reference" value={formatInrFromUsd(result.mlPredictedValueUsd)} mono />
                   <DetailRow label="ML confidence" value={result.mlPredictionConfidence ?? "Not available"} />
                   <DetailRow label="Model-adjusted value" value={formatInrFromUsd(result.modelAdjustedEstimatedValueUsd)} mono />
                   <DetailRow label="AI-adjusted value" value={formatInrFromUsd(result.adjustedEstimatedValueUsd)} mono />
@@ -963,8 +1065,11 @@ export default function AnalyzePage() {
               <SectionCard eyebrow="Comparable Sales" title="Nearest observed sale references">
                 {result.comparableSales.length ? (
                   <div className="space-y-3">
-                    {result.comparableSales.map((sale) => (
-                      <div key={`${sale.domain}-${sale.salePriceUsd}-${sale.saleDate ?? "na"}`} className="rounded-[22px] border border-black bg-white px-4 py-4">
+                    {result.comparableSales.map((sale, index) => (
+                      <div
+                        key={`${sale.domain}-${sale.salePriceUsd}-${sale.saleDate ?? "na"}-${sale.venue ?? "na"}-${index}`}
+                        className="rounded-[22px] border border-black bg-white px-4 py-4"
+                      >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="data-mono text-lg font-semibold text-black">{sale.domain}</p>

@@ -165,10 +165,88 @@ function getPricingConfidence(params: {
   return "Low" as const;
 }
 
+function mapAdvisorConfidence(
+  confidence: Awaited<ReturnType<typeof generateOpenAIDomainInsights>>["confidence"],
+): MlPredictionResult["confidence"] {
+  if (confidence === "High") return "High";
+  if (confidence === "Medium") return "Medium";
+  return "Low";
+}
+
+function deriveAiInitialEstimate(params: {
+  currentEstimateUsd: number;
+  rawEstimatedValueUsd: number;
+  tldAnchorUsd: number;
+  comparableSalesSummary: ComparableSalesSummary;
+  aiInsights: Awaited<ReturnType<typeof generateOpenAIDomainInsights>>;
+  score: number;
+  tld: string;
+  availabilityStatus: "Available" | "Taken" | "Unknown";
+  exceptionalBrandSignal?: boolean;
+}) {
+  const comparableReference =
+    params.comparableSalesSummary.weightedMedianSaleUsd ??
+    params.comparableSalesSummary.medianSaleUsd;
+  const aiStrength =
+    params.aiInsights.premiumFeelScore * 0.34 +
+    params.aiInsights.endUserDemandScore * 0.36 +
+    params.aiInsights.aftermarketStrengthScore * 0.3;
+
+  const comparableComponent = comparableReference
+    ? comparableReference *
+      clamp(
+        0.22 +
+          params.aiInsights.endUserDemandScore / 180 +
+          params.comparableSalesSummary.averageSimilarity / 220,
+        0.18,
+        params.exceptionalBrandSignal ? 1.18 : 0.82,
+      )
+    : 0;
+
+  const anchorComponent =
+    params.tldAnchorUsd *
+    clamp(
+      0.04 +
+        params.score / 230 +
+        params.aiInsights.premiumFeelScore / 420 +
+        params.aiInsights.aftermarketStrengthScore / 420,
+      0.06,
+      params.exceptionalBrandSignal ? 1.1 : 0.42,
+    );
+
+  const heuristicComponent =
+    params.currentEstimateUsd * 0.46 + params.rawEstimatedValueUsd * 0.18 + anchorComponent * 0.36;
+
+  let estimate =
+    comparableComponent > 0
+      ? (heuristicComponent * 0.48 + comparableComponent * 0.52)
+      : heuristicComponent;
+
+  if (params.availabilityStatus === "Available" && params.comparableSalesSummary.count <= 1 && !params.exceptionalBrandSignal) {
+    estimate *= params.tld === "com" ? 0.76 : 0.56;
+  }
+  if (params.tld === "in" && !params.exceptionalBrandSignal) {
+    estimate *= params.availabilityStatus === "Taken" ? 0.84 : 0.68;
+    if (aiStrength < 64) estimate *= 0.8;
+  }
+  if (params.exceptionalBrandSignal) {
+    estimate = Math.max(
+      estimate,
+      comparableReference
+        ? comparableReference * 0.68
+        : params.tldAnchorUsd * (params.tld === "in" ? 0.92 : 1.04),
+    );
+  }
+
+  return Math.max(0, Math.round(estimate));
+}
+
 function adjustEstimatedValue(params: {
   rawEstimatedValueUsd: number;
   mlEstimatedValueUsd?: number | null;
   mlPredictionConfidence?: MlPredictionResult["confidence"] | null;
+  mlPronounceabilityScore?: number | null;
+  mlCategoryHint?: string | null;
   tld: string;
   score: number;
   investmentScore: number;
@@ -193,6 +271,8 @@ function adjustEstimatedValue(params: {
     params.marketScore * 0.2;
   const mlBaseline =
     params.mlEstimatedValueUsd && params.mlEstimatedValueUsd > 0 ? params.mlEstimatedValueUsd : null;
+  const mlPronounceabilityScore = params.mlPronounceabilityScore ?? 50;
+  const mlCategoryHint = params.mlCategoryHint ?? "general";
   const qualityIndex = clamp(qualityBlend / 100, 0.18, 1);
   const comparableEvidence =
     params.comparableSalesSummary.count === 0
@@ -221,10 +301,13 @@ function adjustEstimatedValue(params: {
     anchorExposure -= 0.14;
   }
   if (params.tld === "in" && params.availabilityStatus !== "Taken" && !params.exceptionalBrandSignal) {
-    anchorExposure -= 0.08;
+    anchorExposure -= params.comparableSalesCount >= 3 ? 0.08 : 0.15;
   }
   if (params.lowQualitySignal) {
     anchorExposure -= 0.14;
+  }
+  if (params.tld === "in" && !params.exceptionalBrandSignal && mlPronounceabilityScore < 62) {
+    anchorExposure -= 0.08;
   }
 
   anchorExposure = clamp(anchorExposure, 0.015, 0.92);
@@ -247,6 +330,12 @@ function adjustEstimatedValue(params: {
   if (params.lowQualitySignal) comparableQualityShare -= 0.16;
   if (params.tld !== "com" && params.comparableSalesCount < 3 && !params.exceptionalBrandSignal) {
     comparableQualityShare -= 0.1;
+  }
+  if (params.tld === "in" && !params.exceptionalBrandSignal) {
+    comparableQualityShare -= params.comparableSalesCount >= 4 ? 0.08 : 0.18;
+  }
+  if (mlCategoryHint === "brand" && mlPronounceabilityScore < 60 && !params.exceptionalBrandSignal) {
+    comparableQualityShare -= 0.08;
   }
 
   comparableQualityShare = clamp(comparableQualityShare, 0.08, 0.94);
@@ -273,6 +362,11 @@ function adjustEstimatedValue(params: {
   } else if (params.availabilityStatus === "Available" && params.comparableSalesCount === 1) {
     adjusted *= params.tld === "com" ? 0.72 : 0.58;
   }
+  if (params.tld === "in" && !params.exceptionalBrandSignal) {
+    adjusted *= params.availabilityStatus === "Taken" ? 0.82 : 0.66;
+    if (mlPronounceabilityScore < 62) adjusted *= 0.84;
+    if (params.comparableSalesCount <= 1) adjusted *= 0.8;
+  }
 
   if (params.lowQualitySignal) adjusted *= 0.62;
   if (params.score < 40) adjusted *= 0.58;
@@ -290,6 +384,10 @@ function adjustEstimatedValue(params: {
           : params.score >= 50
             ? anchor.medianVisibleSaleUsd * 0.015
             : 15;
+  const effectiveFloor =
+    params.tld === "in" && !params.exceptionalBrandSignal
+      ? Math.min(floor, 120)
+      : floor;
 
   let softCap =
     anchor.medianVisibleSaleUsd *
@@ -307,7 +405,13 @@ function adjustEstimatedValue(params: {
     softCap *= params.tld === "com" ? 0.62 : 0.42;
   }
   if (params.tld === "in" && params.availabilityStatus !== "Taken" && !params.exceptionalBrandSignal) {
-    softCap *= 0.68;
+    softCap *= params.comparableSalesCount >= 4 ? 0.68 : 0.42;
+  }
+  if (params.tld === "in" && params.availabilityStatus === "Taken" && !params.exceptionalBrandSignal) {
+    softCap *= params.comparableSalesCount >= 4 ? 0.82 : 0.56;
+  }
+  if (params.tld === "in" && !params.exceptionalBrandSignal && mlPronounceabilityScore < 62) {
+    softCap *= 0.76;
   }
   if (params.lowQualitySignal) softCap *= 0.54;
   if (params.riskLevel === "High") softCap *= 0.76;
@@ -327,10 +431,10 @@ function adjustEstimatedValue(params: {
 
   if (params.exceptionalBrandSignal) {
     adjusted *= 1.35;
-    softCap = Math.max(softCap, anchor.medianVisibleSaleUsd * (params.tld === "com" ? 1.2 : 0.86));
+    softCap = Math.max(softCap, anchor.medianVisibleSaleUsd * (params.tld === "com" ? 1.2 : params.tld === "in" ? 0.96 : 0.86));
   }
 
-  adjusted = clamp(adjusted, floor, Math.max(floor, softCap));
+  adjusted = clamp(adjusted, effectiveFloor, Math.max(effectiveFloor, softCap));
 
   return {
     tldMarketAnchorUsd: anchor.medianVisibleSaleUsd,
@@ -788,6 +892,8 @@ export async function POST(request: Request) {
       rawEstimatedValueUsd: enrichedMarketData.estimatedValueUsd,
       mlEstimatedValueUsd: mlPrediction?.predictedValueUsd ?? null,
       mlPredictionConfidence: mlPrediction?.confidence ?? null,
+      mlPronounceabilityScore: mlPrediction?.extractedFeatures.pronounceabilityScore ?? null,
+      mlCategoryHint: mlPrediction?.extractedFeatures.categoryHint ?? null,
       tld: rule.tld,
       score: final,
       investmentScore,
@@ -827,6 +933,18 @@ export async function POST(request: Request) {
       comparableSalesCount: comparableSalesSummary.count,
     });
 
+    const aiInitialEstimateUsd = deriveAiInitialEstimate({
+      currentEstimateUsd: valuation.adjustedEstimatedValueUsd,
+      rawEstimatedValueUsd: enrichedMarketData.estimatedValueUsd,
+      tldAnchorUsd: valuation.tldMarketAnchorUsd,
+      comparableSalesSummary,
+      aiInsights: openaiInsights,
+      score: final,
+      tld: rule.tld,
+      availabilityStatus: availability,
+      exceptionalBrandSignal,
+    });
+
     final = applyPremiumRealityCaps({
       score: final,
       tld: rule.tld,
@@ -856,8 +974,10 @@ export async function POST(request: Request) {
 
     valuation = adjustEstimatedValue({
       rawEstimatedValueUsd: enrichedMarketData.estimatedValueUsd,
-      mlEstimatedValueUsd: mlPrediction?.predictedValueUsd ?? null,
-      mlPredictionConfidence: mlPrediction?.confidence ?? null,
+      mlEstimatedValueUsd: aiInitialEstimateUsd,
+      mlPredictionConfidence: mapAdvisorConfidence(openaiInsights.confidence),
+      mlPronounceabilityScore: mlPrediction?.extractedFeatures.pronounceabilityScore ?? null,
+      mlCategoryHint: mlPrediction?.extractedFeatures.categoryHint ?? null,
       tld: rule.tld,
       score: final,
       investmentScore,
@@ -935,6 +1055,13 @@ export async function POST(request: Request) {
       domainLength: rule.name.replace(/\./g, "").length,
       availabilityStatus: availability,
       resaleStatus: marketplace?.resaleStatus ?? "unknown",
+      comparableSalesCount: comparableSalesSummary.count,
+      averageComparableSimilarity: comparableSalesSummary.averageSimilarity,
+      premiumFeelScore: openaiInsights.premiumFeelScore,
+      endUserDemandScore: openaiInsights.endUserDemandScore,
+      aftermarketStrengthScore: openaiInsights.aftermarketStrengthScore,
+      negotiationRiskScore: openaiInsights.negotiationRiskScore,
+      categoryHint: mlPrediction?.extractedFeatures.categoryHint ?? null,
     });
 
     const response = {
@@ -948,6 +1075,7 @@ export async function POST(request: Request) {
       marketScore,
       availabilityStatus: availability,
       estimatedValueUsd: enrichedMarketData.estimatedValueUsd,
+      aiInitialEstimateUsd,
       mlPredictedValueUsd: mlPrediction?.predictedValueUsd ?? null,
       mlPredictionConfidence: mlPrediction?.confidence ?? null,
       mlExtractedFeatures: mlPrediction?.extractedFeatures ?? null,

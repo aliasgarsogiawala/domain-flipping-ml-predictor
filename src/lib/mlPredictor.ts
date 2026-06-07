@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import path from "node:path";
 
 const execFileAsync = promisify(execFile);
+const MAX_REASONABLE_ML_USD = 10_000_000;
 
 export type MlPredictionResult = {
   predictedValueUsd: number;
@@ -30,6 +31,28 @@ export type MlPredictionResult = {
   };
 };
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function sanitizeMlPredictionResult(
+  parsed: MlPredictionResult | { error: string },
+): MlPredictionResult | null {
+  if ("error" in parsed) {
+    return null;
+  }
+
+  if (!isFiniteNumber(parsed.predictedValueUsd)) {
+    return null;
+  }
+
+  if (parsed.predictedValueUsd < 0 || parsed.predictedValueUsd > MAX_REASONABLE_ML_USD) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function resolvePythonCommand() {
   return process.env.DOMAIN_ML_PYTHON || path.join(process.cwd(), ".venv", "bin", "python");
 }
@@ -49,11 +72,7 @@ export async function predictDomainValueWithMl(
     });
 
     const parsed = JSON.parse(stdout) as MlPredictionResult | { error: string };
-    if ("error" in parsed) {
-      return null;
-    }
-
-    return parsed;
+    return sanitizeMlPredictionResult(parsed);
   } catch {
     return null;
   }
