@@ -133,6 +133,24 @@ ml/predict.py
 4. The trained bundle is saved to `ml/domain_value_model.pkl`
 5. The Next.js API route calls Python for inference through `src/lib/mlPredictor.ts`
 
+### Current checked ML artifact
+
+The currently checked model artifact was inspected locally from `ml/domain_value_model.pkl`.
+
+- model family: `RandomForestRegressor`
+- training rows: `350,309`
+- checked MAE: `3828.61 USD`
+
+That MAE is not “final accuracy” in a consumer-marketing sense. It is the average absolute pricing error on a very noisy domain-sales regression problem with heavy outliers. The app therefore does not rely on ML alone. It blends:
+
+- ML baseline
+- comparable sales
+- TLD benchmark anchors
+- rule-based scoring
+- AI helper signals
+
+This is also why `/analyze` exposes valuation evidence instead of pretending one model output is enough.
+
 ## Environment variables
 
 At minimum, you will usually need:

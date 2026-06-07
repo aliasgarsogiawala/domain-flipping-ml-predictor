@@ -132,6 +132,10 @@ function inferName(domain: string) {
   return normalized.includes(".") ? normalized.slice(0, normalized.lastIndexOf(".")) : normalized;
 }
 
+function tokenizeName(name: string) {
+  return name.split(/[^a-z0-9]+/).filter(Boolean);
+}
+
 function inferWordCount(domain: string) {
   const name = inferName(domain);
   const parts = name.split(/[-_]/).filter(Boolean);
@@ -144,20 +148,95 @@ function inferCharLength(domain: string) {
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ai: ["ai", "agent", "gpt", "model", "neural", "bot"],
-  startup: ["labs", "stack", "flow", "base", "launch", "build"],
+  startup: ["labs", "stack", "flow", "base", "launch", "build", "forge", "mint", "pilot"],
   finance: ["pay", "bank", "fund", "trade", "capital", "invest"],
   crypto: ["crypto", "chain", "coin", "wallet", "block"],
   health: ["health", "care", "med", "clinic", "bio"],
-  data: ["data", "cloud", "ops", "sync", "graph", "signal"],
+  data: ["data", "cloud", "ops", "sync", "graph", "signal", "compute", "search"],
+  commerce: ["shop", "store", "sale", "market", "buy", "cart"],
+  travel: ["trip", "travel", "tour", "flight", "hotel"],
+  education: ["learn", "school", "edu", "course", "academy"],
+  legal: ["law", "legal", "attorney", "firm"],
+};
+
+const COMMERCIAL_TERMS = new Set(["pay", "bank", "fund", "trade", "capital", "invest", "market", "shop"]);
+const TECH_TERMS = new Set([
+  "ai",
+  "agent",
+  "gpt",
+  "model",
+  "cloud",
+  "data",
+  "stack",
+  "dev",
+  "signal",
+  "search",
+  "compute",
+  "pilot",
+  "forge",
+]);
+const GLOBAL_BRAND_TOKENS = new Set([
+  "google",
+  "openai",
+  "stripe",
+  "uber",
+  "figma",
+  "linear",
+  "notion",
+  "github",
+  "amazon",
+  "apple",
+  "netflix",
+  "tesla",
+  "oracle",
+  "meta",
+  "adobe",
+]);
+
+const CATEGORY_COMPATIBILITY: Record<string, string[]> = {
+  brand: ["short"],
+  short: ["brand"],
+  ai: ["tech", "data", "startup"],
+  tech: ["ai", "data", "startup"],
+  data: ["ai", "tech", "startup"],
+  startup: ["ai", "tech", "data", "brand"],
+  finance: ["commerce"],
+  commerce: ["finance"],
 };
 
 export function inferMarketCategory(domain: string) {
   const name = inferName(domain);
+  const tokens = tokenizeName(name);
+  const compact = tokens.join("");
 
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some((keyword) => name.includes(keyword))) {
+    if (keywords.some((keyword) => tokens.includes(keyword) || compact.includes(keyword))) {
       return category;
     }
+  }
+
+  if (tokens.some((token: string) => GLOBAL_BRAND_TOKENS.has(token))) {
+    return "brand";
+  }
+
+  if (tokens.some((token: string) => COMMERCIAL_TERMS.has(token))) {
+    return "commerce";
+  }
+
+  if (tokens.some((token: string) => TECH_TERMS.has(token))) {
+    return "tech";
+  }
+
+  if (tokens.length >= 3) {
+    return "general";
+  }
+
+  if (compact.length <= 4 && /^[a-z]+$/.test(compact)) {
+    return "short";
+  }
+
+  if (tokens.length === 1 && compact.length >= 5 && compact.length <= 10 && /^[a-z]+$/.test(compact)) {
+    return "brand";
   }
 
   return "general";
@@ -438,36 +517,54 @@ function scoreComparableMatch(params: {
   targetTld: string;
   targetLength: number;
   targetCategory: string;
+  targetWordCount: number;
   record: MarketSaleRecord;
 }) {
   let score = 0;
   const reasons: string[] = [];
+  const recordCategory = params.record.category || "general";
+  const compatibleCategories = CATEGORY_COMPATIBILITY[params.targetCategory] ?? [];
 
   if (params.record.tld === params.targetTld) {
-    score += 45;
+    score += 30;
     reasons.push("Same TLD");
   }
 
   const lengthGap = Math.abs((params.record.charLength ?? params.targetLength) - params.targetLength);
   if (lengthGap === 0) {
-    score += 24;
+    score += 20;
     reasons.push("Same length");
   } else if (lengthGap <= 2) {
-    score += 16;
+    score += 12;
     reasons.push("Similar length");
   } else if (lengthGap <= 4) {
-    score += 8;
-  }
-
-  if (params.record.category === params.targetCategory) {
-    score += 22;
-    reasons.push("Same category");
-  } else if (params.targetCategory === "general" || params.record.category === "general") {
-    score += 6;
-  }
-
-  if ((params.record.wordCount ?? 1) === 1) {
     score += 4;
+  }
+
+  if (recordCategory === params.targetCategory) {
+    score += 36;
+    reasons.push("Same category");
+  } else if (compatibleCategories.includes(recordCategory)) {
+    score += 14;
+    reasons.push("Related category");
+  } else if (params.targetCategory === "general" && recordCategory === "general") {
+    score += 8;
+  } else if (params.targetCategory !== "general" && recordCategory === "general") {
+    score -= 10;
+  } else {
+    score -= 18;
+  }
+
+  const recordWordCount = params.record.wordCount ?? 1;
+  if (recordWordCount === params.targetWordCount) {
+    score += 8;
+    reasons.push("Same word count");
+  } else if (Math.abs(recordWordCount - params.targetWordCount) <= 1) {
+    score += 3;
+  }
+
+  if (recordWordCount === 1 && params.targetWordCount === 1) {
+    score += 6;
   }
 
   return {
@@ -520,6 +617,7 @@ export async function findComparableSales(domain: string, limit = 5): Promise<Co
   const targetTld = inferTld(normalizedDomain);
   const targetLength = inferCharLength(normalizedDomain);
   const targetCategory = inferMarketCategory(normalizedDomain);
+  const targetWordCount = inferWordCount(normalizedDomain);
 
   return records
     .filter((record) => record.domain !== normalizedDomain)
@@ -528,6 +626,7 @@ export async function findComparableSales(domain: string, limit = 5): Promise<Co
         targetTld,
         targetLength,
         targetCategory,
+        targetWordCount,
         record,
       });
 
@@ -537,7 +636,7 @@ export async function findComparableSales(domain: string, limit = 5): Promise<Co
         matchReasons: reasons,
       };
     })
-    .filter((record) => record.similarityScore >= 36)
+    .filter((record) => record.similarityScore >= 34)
     .sort((left, right) => {
       if (right.similarityScore !== left.similarityScore) {
         return right.similarityScore - left.similarityScore;

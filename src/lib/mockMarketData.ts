@@ -18,6 +18,24 @@ const PREMIUM_EXAMPLES = new Set([
   "linear.app",
 ]);
 
+const EXCEPTIONAL_BRAND_NAMES = new Set([
+  "google",
+  "openai",
+  "stripe",
+  "uber",
+  "figma",
+  "linear",
+  "notion",
+  "github",
+  "amazon",
+  "apple",
+  "netflix",
+  "tesla",
+  "oracle",
+  "meta",
+  "adobe",
+]);
+
 const TOP_TIER_TLDS = new Set(["com", "ai", "io"]);
 const MID_TIER_TLDS = new Set(["co", "app", "dev", "in"]);
 const TREND_TERMS = new Set(["ai", "agent", "data", "cloud", "dev", "pay", "health", "tech"]);
@@ -69,6 +87,30 @@ export function getMockMarketData(domain: string): MockMarketData {
   const { name, tld } = splitDomain(normalized);
   const tokens = tokenizeName(name);
   const compactName = tokens.join("");
+  const exceptionalBrandSignal = tokens.length === 1 && EXCEPTIONAL_BRAND_NAMES.has(compactName);
+
+  if (exceptionalBrandSignal) {
+    const exceptionalBase =
+      tld === "com"
+        ? 1_200_000
+        : tld === "ai"
+          ? 460_000
+          : tld === "io"
+            ? 300_000
+            : tld === "in"
+              ? 260_000
+              : 180_000;
+
+    return {
+      estimatedValueUsd: exceptionalBase,
+      comparableSalesCount: tld === "com" ? 12 : 7,
+      averageComparableSaleUsd: Math.round(exceptionalBase * 0.22),
+      highestComparableSaleUsd: Math.round(exceptionalBase * 1.9),
+      marketDemand: "High",
+      premiumSignal: true,
+    };
+  }
+
   const hash = hashText(normalized);
   const containsNumber = /\d/.test(name);
   const containsHyphen = name.includes("-");
