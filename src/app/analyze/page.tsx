@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import DomainSignalRadarChart from "@/components/DomainSignalRadarChart";
@@ -300,7 +300,7 @@ function SectionCard({
   );
 }
 
-export default function AnalyzePage() {
+function AnalyzeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const seededDomain = searchParams.get("domain")?.trim() ?? "";
@@ -1335,5 +1335,13 @@ export default function AnalyzePage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function AnalyzePage() {
+  return (
+    <Suspense fallback={null}>
+      <AnalyzeContent />
+    </Suspense>
   );
 }

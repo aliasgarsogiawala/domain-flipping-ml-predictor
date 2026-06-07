@@ -1,8 +1,3 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import path from "node:path";
-
-const execFileAsync = promisify(execFile);
 const MAX_REASONABLE_ML_USD = 10_000_000;
 const ML_TIMEOUT_MS = 15000;
 
@@ -54,14 +49,6 @@ function sanitizeMlPredictionResult(
   return parsed;
 }
 
-function resolvePythonCommand() {
-  return process.env.DOMAIN_ML_PYTHON || path.join(process.cwd(), ".venv", "bin", "python");
-}
-
-function resolvePredictScript() {
-  return path.join(process.cwd(), "ml", "predict.py");
-}
-
 /**
  * Calls the hosted FastAPI model service (ml/server.py) when DOMAIN_ML_URL is set.
  * This is the production path (e.g. a Render web service).
@@ -88,12 +75,26 @@ async function predictViaHttp(baseUrl: string, domain: string) {
 }
 
 /**
- * Local dev fallback: shells out to the Python script directly. Used when
- * DOMAIN_ML_URL is not configured (no hosted service).
+ * Local dev fallback: shells out to the Python script directly.
+ *
+ * Node builtins are imported dynamically and the file paths are assembled from
+ * runtime segments on purpose, so the bundler never statically traces a path
+ * into the local `.venv` (whose `bin/python` is a symlink outside the project).
  */
 async function predictViaPython(domain: string) {
-  const { stdout } = await execFileAsync(resolvePythonCommand(), [resolvePredictScript(), domain], {
-    cwd: process.cwd(),
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const nodePath = await import("node:path");
+  const run = promisify(execFile);
+
+  const root = /* turbopackIgnore: true */ process.cwd();
+  const pythonSegments = [".venv", "bin", "python"];
+  const pythonCommand =
+    process.env.DOMAIN_ML_PYTHON || nodePath.join(/* turbopackIgnore: true */ root, ...pythonSegments);
+  const scriptPath = nodePath.join(/* turbopackIgnore: true */ root, ...["ml", "predict.py"]);
+
+  const { stdout } = await run(pythonCommand, [scriptPath, domain], {
+    cwd: root,
     timeout: ML_TIMEOUT_MS,
     maxBuffer: 1024 * 1024,
   });
