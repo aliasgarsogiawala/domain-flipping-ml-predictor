@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { formatInrFromUsd } from "./currency";
 import { loadMarketData } from "./marketData";
@@ -23,7 +22,7 @@ export type DomainIdeaSuggestion = {
 };
 
 export type DomainIdeaResponse = {
-  provider: "gemini" | "openai" | "fallback";
+  provider: "gemini" | "fallback";
   model: string | null;
   overview: string;
   marketNote: string;
@@ -40,7 +39,7 @@ export type AssistantChatMessage = {
 };
 
 export type AssistantChatResponse = {
-  provider: "gemini" | "openai" | "fallback";
+  provider: "gemini" | "fallback";
   model: string | null;
   response: string;
   finalVerdict: string;
@@ -60,7 +59,7 @@ export type AssistantChatResponse = {
 };
 
 export type MarketAssistantResponse = {
-  provider: "gemini" | "openai" | "fallback";
+  provider: "gemini" | "fallback";
   model: string | null;
   answer: string;
   insights: string[];
@@ -81,19 +80,8 @@ export type AssistantAnalysisContext = {
   liquidityScore?: number;
 };
 
-const DEFAULT_MODEL = process.env.OPENAI_DOMAIN_MODEL || "gpt-4.1-mini";
-const DEFAULT_GEMINI_MODEL = process.env.GEMINI_DOMAIN_MODEL || "gemini-3.5-flash";
-let cachedClient: OpenAI | null = null;
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_DOMAIN_MODEL || "gemini-2.0-flash";
 let cachedGeminiClient: GoogleGenAI | null = null;
-
-function getClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
-  if (!cachedClient) {
-    cachedClient = new OpenAI({ apiKey });
-  }
-  return cachedClient;
-}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -407,7 +395,6 @@ const groundedChatSchema = {
 
 export async function generateAssistantIdeas(brief: DomainIdeaBrief): Promise<DomainIdeaResponse> {
   const marketContext = await buildMarketContext();
-  let geminiFailure: string | null = null;
   const geminiPrompt = [
     "You are a premium domain naming strategist.",
     "Generate original, plausible, investor-aware domain ideas.",
@@ -450,82 +437,25 @@ export async function generateAssistantIdeas(brief: DomainIdeaBrief): Promise<Do
       };
     }
   } catch (error) {
-    geminiFailure = error instanceof Error ? error.message : "Gemini generation failed.";
-  }
-
-  const client = getClient();
-  if (!client) {
+    const geminiFailure = error instanceof Error ? error.message : "Gemini generation failed.";
     const fallback = fallbackGenerateIdeas(brief);
     return {
       ...fallback,
       diagnostics: {
         attemptedProviders: ["gemini", "fallback"],
-        warning: geminiFailure
-          ? `Gemini failed, so fallback logic was used. ${geminiFailure}`
-          : "Gemini was unavailable, so fallback logic was used.",
+        warning: `Gemini failed, fallback logic used. ${geminiFailure}`,
       },
     };
   }
 
-  try {
-    const response = await client.responses.create({
-      model: DEFAULT_MODEL,
-      instructions:
-        "You are a domain sourcing copilot. Suggest plausible domain ideas grounded in the provided budget, keyword intent, and market snapshot. Do not claim availability. Keep value estimates conservative and realistic.",
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: JSON.stringify({ brief, marketContext }),
-            },
-          ],
-        },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "domain_idea_generator",
-          strict: true,
-          schema: ideaSchema,
-        },
-        verbosity: "low",
-      },
-    });
-
-    const parsed = JSON.parse(response.output_text) as DomainIdeaResponse;
-    return {
-      provider: "openai",
-      model: DEFAULT_MODEL,
-      overview: parsed.overview,
-      marketNote: parsed.marketNote,
-      suggestions: (parsed.suggestions ?? [])
-        .map((item) => ({
-          ...item,
-          domain: normalizeDomain(item.domain) ?? item.domain.toLowerCase(),
-            scoreHint: clamp(item.scoreHint, 35, 95),
-            indicativeValueUsd: clamp(item.indicativeValueUsd, 100, 50000),
-          }))
-        .slice(0, 6),
-      diagnostics: {
-        attemptedProviders: ["gemini", "openai"],
-        warning: geminiFailure
-          ? `Gemini failed, so OpenAI generated these names. ${geminiFailure}`
-          : "Gemini did not produce a usable result, so OpenAI generated these names.",
-      },
-    };
-  } catch (error) {
-    const openaiFailure = error instanceof Error ? error.message : "OpenAI generation failed.";
-    const fallback = fallbackGenerateIdeas(brief);
-    return {
-      ...fallback,
-      diagnostics: {
-        attemptedProviders: ["gemini", "openai", "fallback"],
-        warning: `Both Gemini and OpenAI generation failed, so fallback logic was used. Gemini: ${geminiFailure ?? "unavailable"}. OpenAI: ${openaiFailure}`,
-      },
-    };
-  }
+  const fallback = fallbackGenerateIdeas(brief);
+  return {
+    ...fallback,
+    diagnostics: {
+      attemptedProviders: ["gemini", "fallback"],
+      warning: "Gemini was unavailable, fallback logic used.",
+    },
+  };
 }
 
 export async function generateAssistantChatReply(params: {
@@ -533,148 +463,64 @@ export async function generateAssistantChatReply(params: {
   history: AssistantChatMessage[];
   analysisContext?: AssistantAnalysisContext | null;
 }): Promise<AssistantChatResponse> {
-  const client = getClient();
   const marketContext = await buildMarketContext();
-  if (!client) {
-    const fallback = fallbackChatResponse(params.message, params.analysisContext);
-
-    try {
-      const geminiPerspective = await generateGeminiJson<{
-        response: string;
-        finalVerdict: string;
-        reasoning: string[];
-        alternativeDomains: string[];
-      }>({
-        prompt: [
-          "Provide an independent AI opinion on this domain question.",
-          "Use Google Search grounding when useful to improve freshness and factuality.",
-          "Do not rely only on numeric analyzer scores; form your own conclusion.",
-          JSON.stringify({
-            message: params.message,
-            history: params.history.slice(-8),
-            analysisContext: params.analysisContext ?? null,
-            marketContext,
-          }),
-        ].join("\n\n"),
-        schema: groundedChatSchema as unknown as Record<string, unknown>,
-        searchGrounded: true,
-      });
-
-      if (geminiPerspective) {
-        fallback.independentPerspective = {
-          provider: "gemini",
-          model: DEFAULT_GEMINI_MODEL,
-          response: geminiPerspective.parsed.response,
-          finalVerdict: geminiPerspective.parsed.finalVerdict,
-          reasoning: (geminiPerspective.parsed.reasoning ?? []).slice(0, 4),
-          alternativeDomains: (geminiPerspective.parsed.alternativeDomains ?? [])
-            .map(normalizeDomain)
-            .filter((item): item is string => Boolean(item))
-            .slice(0, 5),
-          searchGrounded: geminiPerspective.searchGrounded,
-          citedSources: geminiPerspective.citedSources,
-        };
-      }
-    } catch {
-      // Keep fallback-only response.
-    }
-
-    return fallback;
-  }
 
   try {
-    const response = await client.responses.create({
-      model: DEFAULT_MODEL,
-      instructions:
-        "You are a domain investing copilot. Stay analytical, grounded, and conservative. Do not promise profit. Use the provided domain analysis context when present. Suggest alternative domains as ideas only, not availability claims.",
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: JSON.stringify({
-                message: params.message,
-                history: params.history.slice(-8),
-                analysisContext: params.analysisContext ?? null,
-                marketContext,
-              }),
-            },
-          ],
-        },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "domain_copilot_reply",
-          strict: true,
-          schema: chatSchema,
-        },
-        verbosity: "low",
-      },
+    const geminiResult = await generateGeminiJson<{
+      response: string;
+      finalVerdict: string;
+      reasoning: string[];
+      suggestedActions: string[];
+      alternativeDomains: string[];
+    }>({
+      prompt: [
+        "You are a domain investing copilot. Stay analytical, grounded, and conservative. Do not promise profit. Use the provided domain analysis context when present. Suggest alternative domains as ideas only, not availability claims. Use Google Search grounding when useful.",
+        JSON.stringify({
+          message: params.message,
+          history: params.history.slice(-8),
+          analysisContext: params.analysisContext ?? null,
+          marketContext,
+        }),
+      ].join("\n\n"),
+      schema: chatSchema as unknown as Record<string, unknown>,
+      searchGrounded: true,
     });
 
-    const parsed = JSON.parse(response.output_text) as AssistantChatResponse;
-    let independentPerspective: AssistantChatResponse["independentPerspective"] = null;
-
-    try {
-      const geminiPerspective = await generateGeminiJson<{
-        response: string;
-        finalVerdict: string;
-        reasoning: string[];
-        alternativeDomains: string[];
-      }>({
-        prompt: [
-          "Provide an independent AI opinion on this domain question.",
-          "Use Google Search grounding when useful to improve freshness and factuality.",
-          "Do not reuse the app's numeric score as the sole basis of the answer.",
-          "You may reference the provided analysis context, but form your own conclusion.",
-          JSON.stringify({
-            message: params.message,
-            history: params.history.slice(-8),
-            analysisContext: params.analysisContext ?? null,
-            marketContext,
-          }),
-        ].join("\n\n"),
-        schema: groundedChatSchema as unknown as Record<string, unknown>,
-        searchGrounded: true,
-      });
-
-      if (geminiPerspective) {
-        independentPerspective = {
-          provider: "gemini",
-          model: DEFAULT_GEMINI_MODEL,
-          response: geminiPerspective.parsed.response,
-          finalVerdict: geminiPerspective.parsed.finalVerdict,
-          reasoning: (geminiPerspective.parsed.reasoning ?? []).slice(0, 4),
-          alternativeDomains: (geminiPerspective.parsed.alternativeDomains ?? [])
-            .map(normalizeDomain)
-            .filter((item): item is string => Boolean(item))
-            .slice(0, 5),
-          searchGrounded: geminiPerspective.searchGrounded,
-          citedSources: geminiPerspective.citedSources,
-        };
-      }
-    } catch {
-      independentPerspective = null;
+    if (geminiResult) {
+      const parsed = geminiResult.parsed;
+      return {
+        provider: "gemini",
+        model: DEFAULT_GEMINI_MODEL,
+        response: parsed.response,
+        finalVerdict: parsed.finalVerdict,
+        reasoning: (parsed.reasoning ?? []).slice(0, 4),
+        suggestedActions: (parsed.suggestedActions ?? []).slice(0, 4),
+        alternativeDomains: (parsed.alternativeDomains ?? [])
+          .map(normalizeDomain)
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 5),
+        independentPerspective: geminiResult.citedSources.length > 0
+          ? {
+              provider: "gemini",
+              model: DEFAULT_GEMINI_MODEL,
+              response: parsed.response,
+              finalVerdict: parsed.finalVerdict,
+              reasoning: (parsed.reasoning ?? []).slice(0, 4),
+              alternativeDomains: (parsed.alternativeDomains ?? [])
+                .map(normalizeDomain)
+                .filter((item): item is string => Boolean(item))
+                .slice(0, 5),
+              searchGrounded: geminiResult.searchGrounded,
+              citedSources: geminiResult.citedSources,
+            }
+          : null,
+      };
     }
-
-    return {
-      provider: "openai",
-      model: DEFAULT_MODEL,
-      response: parsed.response,
-      finalVerdict: parsed.finalVerdict,
-      reasoning: (parsed.reasoning ?? []).slice(0, 4),
-      suggestedActions: (parsed.suggestedActions ?? []).slice(0, 4),
-      alternativeDomains: (parsed.alternativeDomains ?? [])
-        .map(normalizeDomain)
-        .filter((item): item is string => Boolean(item))
-        .slice(0, 5),
-      independentPerspective,
-    };
   } catch {
-    return fallbackChatResponse(params.message, params.analysisContext);
+    // Fall through to fallback.
   }
+
+  return fallbackChatResponse(params.message, params.analysisContext);
 }
 
 export async function generateMarketAssistantReply(question: string): Promise<MarketAssistantResponse> {
@@ -715,48 +561,6 @@ export async function generateMarketAssistantReply(question: string): Promise<Ma
     }
   } catch {
     // Fall through.
-  }
-
-  const client = getClient();
-  if (client) {
-    try {
-      const response = await client.responses.create({
-        model: DEFAULT_MODEL,
-        input: `Answer this market question using only the supplied local dataset context.\n\n${JSON.stringify({
-          question,
-          marketContext,
-        })}`,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "market_assistant",
-            strict: true,
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                answer: { type: "string" },
-                insights: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
-                suggestedFilters: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
-              },
-              required: ["answer", "insights", "suggestedFilters"],
-            },
-          },
-          verbosity: "low",
-        },
-      });
-
-      const parsed = JSON.parse(response.output_text) as MarketAssistantResponse;
-      return {
-        provider: "openai",
-        model: DEFAULT_MODEL,
-        answer: parsed.answer,
-        insights: parsed.insights.slice(0, 4),
-        suggestedFilters: parsed.suggestedFilters.slice(0, 4),
-      };
-    } catch {
-      // Fall through.
-    }
   }
 
   return fallbackMarketResponse(marketContext);

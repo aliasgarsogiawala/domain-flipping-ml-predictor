@@ -68,7 +68,7 @@ function deriveResalePotential(input: InvestmentReportInput): ResalePotential {
 function deriveRecommendation(input: InvestmentReportInput): InvestmentRecommendation {
   const expiryDays = daysUntil(input.expiresAt);
   const hasHeavyWeaknesses = input.weaknesses.length >= input.reasons.length + 1;
-  const poorExtension = !["com", "ai", "io", "app", "dev", "co"].includes(input.tld);
+  const poorExtension = !["com", "ai", "io", "app", "dev", "co", "net", "org"].includes(input.tld);
 
   if (
     input.score < 50 ||

@@ -1,4 +1,5 @@
 import CategoryBreakdownChart from "@/components/market/CategoryBreakdownChart";
+import DomainComparisonSection from "@/components/market/DomainComparisonSection";
 import MarketAiPanel from "@/components/market/MarketAiPanel";
 import MarketSummaryCards from "@/components/market/MarketSummaryCards";
 import SalesTable from "@/components/market/SalesTable";
@@ -25,15 +26,15 @@ export default async function MarketPage() {
   const topCategories = marketData.categoryBreakdown.slice(0, 5);
 
   return (
-    <main className="pb-16">
-      <section className="panel-white surface-ring rounded-[34px] px-6 py-8 sm:px-8 lg:px-10">
+    <main className="page-wrap pb-20">
+      <section className="panel-white surface-ring rounded-[34px] px-6 py-10 sm:px-10 lg:px-12">
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="max-w-4xl">
             <p className="section-eyebrow">Market Intelligence</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-black sm:text-5xl lg:text-6xl">
+            <h1 className="mt-4 text-[2.6rem] font-semibold leading-[1.05] tracking-[-0.05em] text-black sm:text-[3.4rem] lg:text-[4.2rem]">
               Domain Market Intelligence
             </h1>
-            <p className="mt-4 text-base leading-8 text-slate-700 sm:text-lg">
+            <p className="mt-5 text-[1.0625rem] leading-[1.8] text-slate-600 sm:text-[1.125rem]">
               Explore reported domain sales, extension performance, pricing benchmarks, and category-level market signals.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
@@ -52,7 +53,7 @@ export default async function MarketPage() {
             </div>
           </div>
 
-          <div className="panel-white-soft rounded-[28px] p-5">
+          <div className="panel-white-soft rounded-[28px] p-6">
             <p className="metric-kicker">Research Actions</p>
             <div className="mt-4 grid gap-3">
               <Link
@@ -68,7 +69,7 @@ export default async function MarketPage() {
                 Ask the AI assistant
               </Link>
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-600">
+            <p className="mt-4 text-[0.9375rem] leading-[1.8] text-slate-600">
               Use this page as the research layer, then move shortlisted names into analysis, chat, or watchlist workflows.
             </p>
             <div className="mt-5 rounded-[22px] border border-black bg-white p-4">
@@ -100,7 +101,7 @@ export default async function MarketPage() {
         <section className="mt-8 panel-white rounded-[30px] p-6 sm:p-8">
           <div className="max-w-3xl">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Dataset Status</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">
+            <h2 className="mt-2 text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.04em] text-black">
               Market dataset is not available yet
             </h2>
             <p className="mt-4 text-base leading-8 text-slate-700">
@@ -117,8 +118,8 @@ export default async function MarketPage() {
       <section className="mt-8 panel-white surface-ring rounded-[32px] p-6 sm:p-8">
         <div className="flex flex-col gap-2 border-b border-black pb-4">
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Latest Reported Sales</p>
-          <h2 className="text-3xl font-semibold tracking-[-0.03em] text-black">Recently observed sales</h2>
-          <p className="text-sm leading-7 text-slate-600">
+          <h2 className="text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.04em] text-black">Recently observed sales</h2>
+          <p className="text-[0.9375rem] leading-[1.8] text-slate-600">
             {marketData.dataSource === "processed"
               ? "Loaded from the processed master dataset for faster page performance."
               : "Loaded from raw CSV sources available in the repository."}
@@ -137,7 +138,7 @@ export default async function MarketPage() {
         <div className="panel-white surface-ring rounded-[32px] p-6 sm:p-8">
           <div className="border-b border-black pb-4">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">TLD Performance</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Dataset-backed extension trends</h2>
+            <h2 className="mt-2 text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.04em] text-black">Dataset-backed extension trends</h2>
           </div>
           <div className="mt-6">
             <TldSalesChart data={marketData.tldPerformance} />
@@ -150,7 +151,7 @@ export default async function MarketPage() {
             <div className="mt-4 space-y-3">
               <div className="rounded-[20px] border border-black bg-[var(--lime)] p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">Highest reported sale</p>
-                <p className="mt-2 data-mono text-2xl font-semibold text-black">
+                <p className="mt-2 data-mono text-[1.4rem] font-semibold leading-snug text-black">
                   {marketData.summary.highestReportedSale?.domain ?? "N/A"}
                 </p>
                 <p className="mt-1 text-sm text-slate-700">
@@ -161,11 +162,11 @@ export default async function MarketPage() {
               </div>
               <div className="rounded-[20px] border border-black bg-white p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Most active TLD</p>
-                <p className="mt-2 data-mono text-2xl font-semibold text-black">{marketData.summary.mostActiveTld}</p>
+                <p className="mt-2 data-mono text-[1.4rem] font-semibold leading-snug text-black">{marketData.summary.mostActiveTld}</p>
               </div>
               <div className="rounded-[20px] border border-black bg-white p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Best median performer</p>
-                <p className="mt-2 data-mono text-2xl font-semibold text-black">
+                <p className="mt-2 data-mono text-[1.4rem] font-semibold leading-snug text-black">
                   {marketData.summary.bestPerformingTldByMedianPrice}
                 </p>
               </div>
@@ -175,7 +176,7 @@ export default async function MarketPage() {
           <div className="panel-white rounded-[32px] p-6">
             <div className="border-b border-black pb-4">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Price Distribution</p>
-              <h3 className="mt-2 text-2xl font-semibold text-black">Market pricing bands</h3>
+              <h3 className="mt-2 text-[1.4rem] font-semibold leading-snug text-black">Market pricing bands</h3>
             </div>
             <div className="mt-5 space-y-4">
               {marketData.priceDistribution.map((bucket) => (
@@ -207,7 +208,7 @@ export default async function MarketPage() {
         <section className="mt-8 panel-white surface-ring rounded-[32px] p-6 sm:p-8">
           <div className="border-b border-black pb-4">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Market Anomalies</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Unusual pricing pockets</h2>
+            <h2 className="mt-2 text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.04em] text-black">Unusual pricing pockets</h2>
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
             {marketData.anomalies.map((anomaly) => (
@@ -235,7 +236,7 @@ export default async function MarketPage() {
         <div className="panel-white surface-ring rounded-[32px] p-6 sm:p-8">
           <div className="border-b border-black pb-4">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Category Trends</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-black">Category-level market signals</h2>
+            <h2 className="mt-2 text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.04em] text-black">Category-level market signals</h2>
           </div>
           <div className="mt-6">
             <CategoryBreakdownChart data={marketData.categoryBreakdown} />
@@ -246,7 +247,7 @@ export default async function MarketPage() {
           <div className="panel-white rounded-[32px] p-6">
             <div className="border-b border-black pb-4">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Top TLD Benchmarks</p>
-              <h3 className="mt-2 text-2xl font-semibold text-black">Most relevant extensions now</h3>
+              <h3 className="mt-2 text-[1.4rem] font-semibold leading-snug text-black">Most relevant extensions now</h3>
             </div>
             <div className="mt-5 space-y-3">
               {topTlds.map((row) => (
@@ -266,7 +267,7 @@ export default async function MarketPage() {
           <div className="panel-white rounded-[32px] p-6">
             <div className="border-b border-black pb-4">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Category Leaders</p>
-              <h3 className="mt-2 text-2xl font-semibold text-black">Where demand is concentrating</h3>
+              <h3 className="mt-2 text-[1.4rem] font-semibold leading-snug text-black">Where demand is concentrating</h3>
             </div>
             <div className="mt-5 space-y-3">
               {topCategories.map((row) => (
@@ -289,23 +290,80 @@ export default async function MarketPage() {
         <MarketAiPanel />
       </section>
 
-      <section className="mt-8 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-        {[
-          ".com remains the strongest liquidity benchmark",
-          ".ai shows strong premium demand in AI/startup categories",
-          "ccTLD values vary heavily by country and buyer intent",
-          "Median values are more reliable than averages because premium sales skew the mean",
-        ].map((note, index) => (
-          <article
-            key={note}
-            className={`rounded-[24px] border border-black p-5 ${
-              index === 0 ? "bg-[var(--lime)]" : "panel-white"
-            }`}
-          >
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Market Insight Notes</p>
-            <p className="mt-3 text-base font-semibold leading-7 text-black">{note}</p>
-          </article>
-        ))}
+      <DomainComparisonSection />
+
+      <section className="mt-8 panel-white surface-ring rounded-[32px] p-6 sm:p-8">
+        <div className="border-b border-black pb-5">
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-600">Market Insights</p>
+          <h2 className="mt-2 text-[1.75rem] font-semibold leading-[1.1] tracking-[-0.04em] text-black">
+            What the data is telling us
+          </h2>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              title: ".com liquidity benchmark",
+              body: ".com remains the deepest liquidity pool in the domain market. Buyers pay a consistent premium for the extension because it carries implicit trust and broad consumer recognition.",
+              highlight: true,
+            },
+            {
+              title: ".ai premium demand",
+              body: ".ai shows strong pricing momentum driven by AI/startup buyers. Premium .ai names with short, brand-forward structures are clearing well above other new gTLDs.",
+              highlight: false,
+            },
+            {
+              title: "ccTLD regional variance",
+              body: "Country-code TLD values vary heavily by territory and buyer intent. A .io might command strong startup positioning while a .co can bridge both regional and startup markets.",
+              highlight: false,
+            },
+            {
+              title: "Median vs. mean pricing",
+              body: "Median sale prices are far more reliable signals than averages for most buying decisions. A handful of premium sales can inflate the mean significantly and distort market positioning.",
+              highlight: false,
+            },
+          ].map((item) => (
+            <article
+              key={item.title}
+              className={`rounded-[24px] border border-black p-5 ${item.highlight ? "bg-[var(--lime)]" : "bg-white"}`}
+            >
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Market Note</p>
+              <p className="mt-3 text-base font-semibold leading-6 text-black">{item.title}</p>
+              <p className="mt-2 text-sm leading-7 text-slate-700">{item.body}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-[24px] border border-black bg-white p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Short domain premium</p>
+            <p className="mt-3 text-base font-semibold text-black">Length drives value non-linearly</p>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              Domains under 6 characters on .com often trade at 3–5× the price of 10+ character equivalents. The value curve steepens sharply below 5 characters. Length is one of the strongest pricing signals in the scoring engine.
+            </p>
+          </div>
+          <div className="rounded-[24px] border border-black bg-white p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Brandability factor</p>
+            <p className="mt-3 text-base font-semibold text-black">Pronounceable names sell faster</p>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              Memorable, single-word or compound-word names that sound like real brands move faster and attract end-user buyers rather than just domain flippers. End-user liquidity tends to produce better realized prices.
+            </p>
+          </div>
+          <div className="rounded-[24px] border border-black bg-white p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Timing the market</p>
+            <p className="mt-3 text-base font-semibold text-black">Category trends compress windows</p>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              Hot sectors like AI, fintech, and health inflate prices quickly, but that premium erodes once the trend matures. Buying into a trend early carries upside; buying in at peak concentration raises the risk of a soft exit.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[24px] border border-black bg-[#f6f6f3] p-5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Methodology note</p>
+          <p className="mt-2 text-[0.9375rem] leading-[1.8] text-slate-700">
+            All pricing data on this page is sourced from the reported sales dataset. Reported sales are self-disclosed or publicly observed transactions — they may not capture private deals or off-market sales. Use these figures as directional benchmarks rather than guaranteed market rates. For a domain-specific estimate, run the Analyze tool and review the evidence-backed adjusted valuation.
+          </p>
+        </div>
       </section>
     </main>
   );

@@ -1,67 +1,70 @@
 @import "tailwindcss";
 
+/* ─── Design tokens ──────────────────────────────────────────────── */
 :root {
-  --bg-dark: #111318;
-  --bg-darker: #0b0d12;
-  --bg-navy: #101726;
-  --bg-light: #f2f2f0;
-  --bg-white: #f7f7f5;
-  --ink: #111111;
-  --ink-soft: #4b5563;
-  --line: rgba(17, 17, 17, 0.18);
-  --line-dark: rgba(255, 255, 255, 0.1);
+  --bg-dark:    #0e1017;
+  --bg-darker:  #090b0f;
+  --bg-navy:    #0f1624;
+  --bg-light:   #f0f0ed;
+  --bg-white:   #f6f6f3;
+  --ink:        #0f0f0f;
+  --ink-soft:   #4b5563;
+  --line:       rgba(15, 15, 15, 0.14);
+  --line-dark:  rgba(255, 255, 255, 0.08);
   --purple-bar: #7888ee;
-  --lime: #f48120;
-  --lime-strong: #e56f0d;
-  --blue: #3b82f6;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --lime:       #f48120;
+  --lime-strong:#e06610;
+  --blue:       #3b82f6;
+  --success:    #22c55e;
+  --warning:    #f59e0b;
+  --danger:     #ef4444;
+
+  /* Radius scale */
+  --r-sm:  12px;
+  --r-md:  18px;
+  --r-lg:  26px;
+  --r-xl:  34px;
+  --r-2xl: 40px;
 }
 
+/* ─── Tailwind colour bridge ─────────────────────────────────────── */
 @theme inline {
   --color-background: var(--bg-white);
-  --color-foreground: var(--ink);
+  --color-foreground:  var(--ink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ─── Reset ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
+/* ─── Base ───────────────────────────────────────────────────────── */
 html {
   background: var(--bg-light);
+  scroll-behavior: smooth;
+  /* Slightly larger base font */
+  font-size: 17px;
 }
 
 body {
   min-height: 100vh;
   background: var(--bg-light);
   color: var(--ink);
-  font-family:
-    var(--font-geist-sans),
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: var(--font-geist-sans), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-image:
-    radial-gradient(circle at top, rgba(120, 136, 238, 0.08), transparent 24%),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(242, 242, 240, 0.95));
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  line-height: 1.6;
 }
 
-a,
-button,
-input {
+a, button, input, select, textarea {
   transition:
-    color 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    opacity 160ms ease;
+    color 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease,
+    transform 120ms ease;
 }
 
 ::selection {
@@ -69,72 +72,80 @@ input {
   color: var(--ink);
 }
 
+/* ─── Shell — full-page grid lives HERE, covers every page ───────── */
 .shell {
   min-height: 100vh;
   background: var(--bg-light);
-}
-
-.page-wrap {
   position: relative;
+  isolation: isolate;
 }
 
-.page-wrap::before {
+/* Grid lines layer — fixed so it fills the entire viewport always */
+.shell::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(to right, rgba(17, 17, 17, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(17, 17, 17, 0.04) 1px, transparent 1px);
-  background-size: 36px 36px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.24), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.16));
   z-index: 0;
-}
-
-.grid-paper {
-  background-color: var(--bg-white) !important;
+  /* Fine cross-grid */
   background-image:
-    linear-gradient(to right, rgba(17, 17, 17, 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(17, 17, 17, 0.12) 1px, transparent 1px);
+    linear-gradient(to right,  rgba(15, 15, 15, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 15, 15, 0.06) 1px, transparent 1px);
   background-size: 44px 44px;
 }
 
-.hero-grid {
-  background-color: #0b0d12 !important;
+/* Dot accent at every grid intersection */
+.shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(circle, rgba(15,15,15,0.15) 1.3px, transparent 1.3px);
+  background-size: 44px 44px;
+  /* Subtle radial fade so edges aren't harsh */
+  mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 20%, transparent 100%);
+  opacity: 0.6;
+}
+
+/* Ambient colour glow on top of grid */
+.shell > *:first-child {
+  position: relative;
+  z-index: 1;
+}
+
+/* Make sure all direct shell children stack above the grid */
+.shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── page-wrap — extra wrapper for hero pages (no grid, shell has it) */
+.page-wrap {
+  position: relative;
+}
+
+/* ─── Grid paper (used inside result sections on analyze page) ───── */
+.grid-paper {
+  background-color: #eaeae7 !important;
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 56px 56px;
+    linear-gradient(to right,  rgba(15, 15, 15, 0.10) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 15, 15, 0.10) 1px, transparent 1px),
+    radial-gradient(circle, rgba(15,15,15,0.18) 1.1px, transparent 1.1px);
+  background-size: 44px 44px, 44px 44px, 44px 44px;
 }
 
-.panel-white {
-  background: #f7f7f5 !important;
-  border: 1.5px solid #111111;
-  box-shadow:
-    8px 8px 0 #111111,
-    0 20px 40px rgba(17, 17, 17, 0.08);
+/* ─── Dark hero grid (inside dark hero sections) ─────────────────── */
+.hero-grid {
+  background-color: var(--bg-darker) !important;
+  background-image:
+    linear-gradient(to right,  rgba(255,255,255,0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.045) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+  background-size: 52px 52px, 52px 52px, 52px 52px;
 }
 
-.panel-white-soft {
-  background: #efefed !important;
-  border: 1.5px solid #111111;
-  box-shadow: 0 12px 24px rgba(17, 17, 17, 0.05);
-}
-
-.panel-dark {
-  background: #111318 !important;
-  border: 1px solid var(--line-dark);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.22),
-    0 14px 28px rgba(0, 0, 0, 0.16);
-}
-
-.panel-dark-soft {
-  background: #101726 !important;
-  border: 1px solid var(--line-dark);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-
+/* ─── Panel grid (dark section with its own grid overlay) ─────────── */
 .panel-grid {
   position: relative;
   overflow: hidden;
@@ -146,12 +157,54 @@ input {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 34px 34px;
-  opacity: 0.65;
+    linear-gradient(to right,  rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px, 40px 40px;
+  opacity: 0.75;
 }
 
+/* ─── White panels ───────────────────────────────────────────────── */
+.panel-white {
+  background: #f6f6f3 !important;
+  border: 1.5px solid #0f0f0f;
+  border-radius: var(--r-xl);
+  box-shadow:
+    6px 6px 0 #0f0f0f,
+    0 24px 48px rgba(15, 15, 15, 0.07),
+    0 4px 8px  rgba(15, 15, 15, 0.04);
+}
+
+.panel-white-soft {
+  background: #ebebea !important;
+  border: 1.5px solid rgba(15, 15, 15, 0.16);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 1px 2px  rgba(15, 15, 15, 0.05),
+    0 8px 20px rgba(15, 15, 15, 0.04);
+}
+
+/* ─── Dark panels ────────────────────────────────────────────────── */
+.panel-dark {
+  background: #111419 !important;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: var(--r-xl);
+  box-shadow:
+    0 1px 2px  rgba(0,0,0,0.28),
+    0 16px 40px rgba(0,0,0,0.20),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.panel-dark-soft {
+  background: var(--bg-navy) !important;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--r-lg);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.03),
+    0 8px 20px rgba(0,0,0,0.14);
+}
+
+/* ─── Surface ring (decorative inner ring on white panels) ───────── */
 .surface-ring {
   position: relative;
 }
@@ -159,40 +212,73 @@ input {
 .surface-ring::after {
   content: "";
   position: absolute;
-  inset: 14px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: inherit;
+  inset: 12px;
+  border: 1px solid rgba(15, 15, 15, 0.07);
+  border-radius: calc(var(--r-xl) - 10px);
   pointer-events: none;
 }
 
+/* ─── Buttons ────────────────────────────────────────────────────── */
 .btn-lime {
   background: var(--lime);
-  color: #111111;
-  border: 1.5px solid #111111;
+  color: #0f0f0f;
+  border: 1.5px solid #0f0f0f;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
   box-shadow:
-    inset 0 -1px 0 rgba(0, 0, 0, 0.15),
-    0 10px 20px rgba(244, 129, 32, 0.22);
+    inset 0 -2px 0 rgba(0,0,0,0.14),
+    0 8px 20px rgba(244, 129, 32, 0.25),
+    0 2px 4px  rgba(0,0,0,0.08);
 }
 
 .btn-lime:hover {
   background: var(--lime-strong);
+  box-shadow:
+    inset 0 -2px 0 rgba(0,0,0,0.16),
+    0 12px 28px rgba(244, 129, 32, 0.32),
+    0 2px 6px  rgba(0,0,0,0.10);
   transform: translateY(-1px);
 }
+
+.btn-lime:active { transform: translateY(0); }
 
 .btn-ghost {
   background: #ffffff;
-  color: #111111;
-  border: 1.5px solid #111111;
-  box-shadow: 0 8px 16px rgba(17, 17, 17, 0.05);
+  color: #0f0f0f;
+  border: 1.5px solid #0f0f0f;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  box-shadow:
+    0 2px 4px rgba(15, 15, 15, 0.06),
+    0 8px 20px rgba(15, 15, 15, 0.04);
 }
 
 .btn-ghost:hover {
-  background: #f3f3ef;
+  background: #f0ede8;
+  box-shadow:
+    0 4px 8px  rgba(15, 15, 15, 0.08),
+    0 12px 24px rgba(15, 15, 15, 0.06);
   transform: translateY(-1px);
 }
 
+.btn-ghost:active { transform: translateY(0); }
+
+/* ─── Typography helpers ─────────────────────────────────────────── */
+.section-eyebrow {
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: #64748b;
+  line-height: 1;
+}
+
 .metric-kicker {
-  font-size: 11px;
+  font-size: 0.71rem;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -200,44 +286,38 @@ input {
 }
 
 .metric-value {
-  font-family:
-    var(--font-geist-mono),
-    "SFMono-Regular",
-    ui-monospace,
-    Menlo,
-    Monaco,
-    Consolas,
-    monospace;
-  font-size: clamp(1.5rem, 2vw, 2.5rem);
+  font-family: var(--font-geist-mono), "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+  font-size: clamp(1.6rem, 2.2vw, 2.8rem);
   line-height: 1;
-  letter-spacing: -0.05em;
-}
-
-.section-eyebrow {
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: #64748b;
-}
-
-.subtle-divider {
-  border-color: rgba(17, 17, 17, 0.08);
+  letter-spacing: -0.04em;
 }
 
 .data-mono {
-  font-family:
-    var(--font-geist-mono),
-    "SFMono-Regular",
-    ui-monospace,
-    Menlo,
-    Monaco,
-    Consolas,
-    monospace;
+  font-family: var(--font-geist-mono), "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
 }
 
-.badge-dark {
-  background: #111111;
-  color: #f8fafc;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* ─── Dividers ───────────────────────────────────────────────────── */
+.subtle-divider {
+  border-color: rgba(15, 15, 15, 0.09);
 }
+
+/* ─── Badge ──────────────────────────────────────────────────────── */
+.badge-dark {
+  background: #0f0f0f;
+  color: #f8fafc;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ─── Input focus ring ───────────────────────────────────────────── */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: rgba(15,15,15,0.18); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(15,15,15,0.30); }

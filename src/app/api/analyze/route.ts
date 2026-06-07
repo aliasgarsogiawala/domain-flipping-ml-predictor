@@ -25,6 +25,27 @@ type TldMarketAnchor = {
   resaleMultiplier: number;
 };
 
+const analysisCache = new Map<string, { result: unknown; expiresAt: number }>();
+const CACHE_TTL_MS = 30 * 60 * 1000;
+
+function getCachedAnalysis(domain: string) {
+  const entry = analysisCache.get(domain);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    analysisCache.delete(domain);
+    return null;
+  }
+  return entry.result;
+}
+
+function setCachedAnalysis(domain: string, result: unknown) {
+  if (analysisCache.size > 500) {
+    const firstKey = analysisCache.keys().next().value;
+    if (firstKey !== undefined) analysisCache.delete(firstKey);
+  }
+  analysisCache.set(domain, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
 const DEFAULT_TLD_ANCHOR: TldMarketAnchor = {
   medianVisibleSaleUsd: 320,
   liquidityScore: 24,
@@ -443,22 +464,18 @@ function adjustEstimatedValue(params: {
   };
 }
 
-async function computeMarketScore(marketData: MockMarketData) {
-  // Simple deterministic mapping to 0-100
+function computeMarketScore(marketData: MockMarketData) {
   let score = 0;
 
   if (marketData.premiumSignal) score += 60;
 
-  // comparable sales weight
   score += Math.min(30, (marketData.comparableSalesCount ?? 0) * 6);
 
-  // estimated value contributes moderately
   const est = marketData.estimatedValueUsd ?? 0;
   if (est > 200000) score += 20;
   else if (est > 50000) score += 12;
   else if (est > 10000) score += 6;
 
-  // demand
   if (marketData.marketDemand === "High") score += 10;
   else if (marketData.marketDemand === "Medium") score += 5;
 
@@ -765,20 +782,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing domain" }, { status: 400 });
     }
 
-    // Run rule-based analysis
+    const cached = getCachedAnalysis(domain);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
     const rule = analyzeRuleDomain(domain);
     const exceptionalBrandSignal = hasExceptionalBrandSignal(rule.name);
 
-    // Market data & RDAP lookup
     const marketData = getMockMarketData(rule.domain);
-    const comparableSales = await findComparableSales(rule.domain, 5);
+    const [comparableSales, rdap, mlPrediction, marketplace] = await Promise.all([
+      findComparableSales(rule.domain, 5),
+      lookupRDAP(rule.domain),
+      predictDomainValueWithMl(rule.domain),
+      getMarketplaceStatus(rule.domain),
+    ]);
     const comparableSalesSummary = summarizeComparableSales(comparableSales);
     const enrichedMarketData: MockMarketData = {
       ...marketData,
       comparableSalesCount: Math.max(marketData.comparableSalesCount, comparableSalesSummary.count),
     };
-    const rdap = await lookupRDAP(rule.domain);
-    const mlPrediction = await predictDomainValueWithMl(rule.domain);
     const availability = rdap.availabilityStatus;
     rule.breakdown.registrationHistory = scoreRegistrationHistory(
       rdap,
@@ -786,16 +809,11 @@ export async function POST(request: Request) {
       rule.weaknesses,
     );
 
-    // Marketplace/resale detection
-    const marketplace = await getMarketplaceStatus(rule.domain);
+    const marketScore = computeMarketScore(enrichedMarketData);
 
-    const marketScore = await computeMarketScore(enrichedMarketData);
-
-    // Combine scores (blend rule and market)
     let final = Math.round(rule.ruleScore * 0.6 + marketScore * 0.4);
     final += rule.breakdown.registrationHistory;
 
-    // Important caps and adjustments
     const compactName = rule.name.replace(/\./g, "");
     const hasHyphenOrNumber = /-|\d/.test(compactName);
     const hasComparables = enrichedMarketData.comparableSalesCount > 0;
@@ -804,33 +822,27 @@ export async function POST(request: Request) {
       enrichedMarketData.comparableSalesCount >= 4 ||
       rule.ruleScore >= 76;
 
-    // If no comparables and no premium signal, cap at 72
     if (!hasComparables && !enrichedMarketData.premiumSignal) {
       final = Math.min(final, 64);
     }
 
-    // If TLD weak, cap at 65
     const tld = rule.tld;
     if (!STRONG_TLDS_MAP[tld]) {
       final = Math.min(final, 65);
     }
 
-    // If hyphens/numbers, cap at 60 unless strong market
     if (hasHyphenOrNumber && !strongMarket) {
       final = Math.min(final, 60);
     }
 
-    // If premium signal allow 85+
     if (enrichedMarketData.premiumSignal && rule.ruleScore >= 78 && availability === "Taken") {
       final = Math.min(100, final + 4);
     }
 
-    // If comparables strong, boost
     if (enrichedMarketData.comparableSalesCount >= 5 && rule.ruleScore >= 68) {
       final = Math.min(100, final + 4);
     }
 
-    // RDAP can add modest credibility, but should not override weak market/rule signals
     if (availability === "Available" && !exceptionalBrandSignal) {
       final = Math.min(final, rule.tld === "com" ? 68 : 60);
     }
@@ -1116,6 +1128,7 @@ export async function POST(request: Request) {
       valueProjection,
     };
 
+    setCachedAnalysis(domain, response);
     return NextResponse.json(response);
   } catch {
     return NextResponse.json({ error: "Unable to analyze domain" }, { status: 500 });

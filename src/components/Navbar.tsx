@@ -7,16 +7,16 @@ import { useUser, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled]             = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isLoaded, isSignedIn } = useUser();
-  const pathname = usePathname();
+  const { isLoaded, isSignedIn }            = useUser();
+  const pathname                            = usePathname();
 
   const navItems = useMemo(
     () => [
-      { href: "/", label: "Home", match: "/" },
-      { href: "/analyze", label: "Analyze", match: "/analyze" },
-      { href: "/market", label: "Marketplace", match: "/market" },
+      { href: "/",          label: "Home",      match: "/"          },
+      { href: "/analyze",   label: "Analyze",   match: "/analyze"   },
+      { href: "/market",    label: "Market",    match: "/market"    },
       { href: "/assistant", label: "Assistant", match: "/assistant" },
       { href: "/watchlist", label: "Watchlist", match: "/watchlist" },
     ],
@@ -24,131 +24,144 @@ export default function Navbar() {
   );
 
   useEffect(() => {
-    function onScroll() {
-      setScrolled(window.scrollY > 8);
-    }
-
+    function onScroll() { setScrolled(window.scrollY > 8); }
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const closeMobileMenu = () => setMobileMenuOpen(false);
+  const close = () => setMobileMenuOpen(false);
 
   return (
     <>
-      <div className="fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-[var(--purple-bar)] px-4 py-2 text-center text-[12px] font-medium text-[#111111] shadow-[0_8px_20px_rgba(120,136,238,0.18)] sm:text-[13px]">
-        <span className="sm:hidden">Domain intelligence in one workspace</span>
-        <span className="hidden sm:inline">
-          Domain intelligence, valuation signals, and watchlist monitoring in one workspace
-        </span>
+      <div className="fixed inset-x-0 top-0 z-50 flex h-9 items-center justify-center border-b border-black/10 bg-[var(--purple-bar)] px-4">
+        <p className="text-[12.5px] font-semibold tracking-[0.05em] text-[#111]">
+          <span className="sm:hidden">Domain intelligence workspace</span>
+          <span className="hidden sm:inline">
+            Domain intelligence · valuation · watchlist monitoring — all in one workspace
+          </span>
+        </p>
       </div>
+
       <header
-        className={`fixed inset-x-0 top-[36px] z-50 border-b border-black/10 bg-[rgba(247,247,245,0.92)] backdrop-blur-xl transition-all ${
-          scrolled ? "shadow-[0_14px_34px_rgba(17,17,17,0.1)]" : ""
+        className={`fixed inset-x-0 top-9 z-50 border-b border-black/[0.08] bg-[rgba(246,246,243,0.94)] backdrop-blur-xl backdrop-saturate-150 transition-shadow duration-200 ${
+          scrolled ? "shadow-[0_8px_28px_rgba(15,15,15,0.09)]" : ""
         }`}
       >
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-8 sm:py-4 lg:px-12">
-          <div className="flex min-w-0 items-center gap-3 lg:gap-8">
-            <Link href="/" onClick={closeMobileMenu} className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-black bg-white shadow-[0_10px_20px_rgba(17,17,17,0.08)] sm:h-12 sm:w-12">
-                <Image height={36} width={36} src={"/nav.png"} alt="DomainFlip AI mark" className="h-7 w-7 sm:h-9 sm:w-9" />
-              </div>
-              <div className="min-w-0">
-                <p className="hidden text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500 sm:block">Domain intelligence suite</p>
-                <p className="truncate text-[18px] font-bold tracking-[-0.05em] text-black sm:text-[28px]">DomainFlip AI</p>
-              </div>
-            </Link>
+        <div className="mx-auto flex w-full max-w-[1440px] items-center gap-4 px-4 py-3 sm:px-8 sm:py-4 lg:px-12">
 
-            <nav className="hidden items-center gap-2 rounded-full border border-black/10 bg-white/70 p-1.5 shadow-[0_10px_24px_rgba(17,17,17,0.04)] lg:flex">
+          <Link href="/" onClick={close} className="flex shrink-0 items-center gap-2.5 sm:gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-black/90 bg-white sm:h-12 sm:w-12 sm:rounded-[18px]"
+              style={{ boxShadow: "3px 3px 0 #0f0f0f, 0 8px 20px rgba(15,15,15,0.10)" }}
+            >
+              <Image
+                height={32} width={32}
+                src="/nav.png"
+                alt="DomainFlip AI"
+                className="h-6 w-6 sm:h-8 sm:w-8"
+              />
+            </div>
+            <div>
+              <p className="hidden text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400 sm:block">
+                Domain intelligence suite
+              </p>
+              <p className="text-[19px] font-bold tracking-[-0.055em] text-black sm:text-[24px]">
+                DomainFlip AI
+              </p>
+            </div>
+          </Link>
+
+          <div className="ml-6 hidden flex-1 items-center justify-between lg:flex">
+            <nav
+              className="flex items-center gap-0.5 rounded-full border border-black/10 bg-white/80 p-1 shadow-[0_3px_12px_rgba(15,15,15,0.06)]"
+            >
               {navItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                    pathname === item.match ? "bg-black text-white" : "text-black hover:bg-black hover:text-white"
+                  className={`rounded-full px-5 py-2 text-[15px] font-semibold tracking-[-0.01em] transition-all ${
+                    pathname === item.match
+                      ? "bg-[#0f0f0f] text-white shadow-[0_2px_6px_rgba(15,15,15,0.28)]"
+                      : "text-slate-700 hover:bg-black/6 hover:text-black"
                   }`}
                 >
                   {item.label}
                 </Link>
               ))}
             </nav>
+
+            <div className="flex items-center gap-2.5">
+              {isLoaded && isSignedIn ? (
+                <UserButton />
+              ) : isLoaded ? (
+                <>
+                  <Link
+                    href="/sign-in"
+                    className="btn-ghost inline-flex items-center rounded-full px-5 py-2 text-[15px]"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/sign-up"
+                    className="btn-lime inline-flex items-center rounded-full px-5 py-2 text-[15px]"
+                  >
+                    Sign up
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  href="/analyze"
+                  className="btn-lime inline-flex items-center rounded-full px-5 py-2 text-[15px]"
+                >
+                  Analyze domain
+                </Link>
+              )}
+            </div>
           </div>
 
-          <div className="hidden items-center gap-2 sm:gap-3 lg:flex">
+          <div className="ml-auto flex shrink-0 items-center gap-2 lg:hidden">
             {isLoaded && isSignedIn ? (
-              <>
-                <UserButton />
-              </>
-            ) : isLoaded ? (
-              <>
-                <Link href="/sign-in" className="btn-ghost inline-flex rounded-full px-4 py-2 text-sm font-semibold">
-                  Sign In
-                </Link>
-                <Link href="/sign-up" className="btn-lime inline-flex rounded-full px-5 py-2 text-sm font-semibold">
-                  Sign Up
-                </Link>
-              </>
+              <UserButton />
             ) : (
-              <>
-                <Link href="/analyze" className="btn-lime inline-flex rounded-full px-5 py-2 text-sm font-semibold">
-                  Analyze Domain
-                </Link>
-              </>
-            )}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2 lg:hidden">
-            {isLoaded && isSignedIn ? (
-              <>
-                <UserButton />
-              </>
-            ) : (
-              <Link href="/sign-in" onClick={closeMobileMenu} className="btn-ghost inline-flex rounded-full px-3 py-2 text-sm font-semibold">
-                Sign In
+              <Link
+                href="/sign-in"
+                onClick={close}
+                className="btn-ghost inline-flex items-center rounded-full px-3 py-1.5 text-sm"
+              >
+                Sign in
               </Link>
             )}
             <button
               type="button"
-              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
-              onClick={() => setMobileMenuOpen((value) => !value)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-black bg-white text-black shadow-[0_8px_18px_rgba(17,17,17,0.06)]"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-black bg-white"
+              style={{ boxShadow: "2px 2px 0 #0f0f0f, 0 4px 12px rgba(15,15,15,0.06)" }}
             >
-              <span className="relative block h-4 w-5">
-                <span
-                  className={`absolute left-0 top-0 h-[2px] w-5 bg-black transition-transform ${
-                    mobileMenuOpen ? "translate-y-[7px] rotate-45" : ""
-                  }`}
-                />
-                <span
-                  className={`absolute left-0 top-[7px] h-[2px] w-5 bg-black transition-opacity ${
-                    mobileMenuOpen ? "opacity-0" : "opacity-100"
-                  }`}
-                />
-                <span
-                  className={`absolute left-0 top-[14px] h-[2px] w-5 bg-black transition-transform ${
-                    mobileMenuOpen ? "-translate-y-[7px] -rotate-45" : ""
-                  }`}
-                />
+              <span className="relative block h-[14px] w-[18px]">
+                <span className={`absolute left-0 top-0     h-[1.5px] w-[18px] bg-black transition-transform ${mobileMenuOpen ? "translate-y-[6px] rotate-45"   : ""}`} />
+                <span className={`absolute left-0 top-[6px] h-[1.5px] w-[18px] bg-black transition-opacity ${mobileMenuOpen ? "opacity-0"                         : "opacity-100"}`} />
+                <span className={`absolute left-0 top-[12px] h-[1.5px] w-[18px] bg-black transition-transform ${mobileMenuOpen ? "-translate-y-[6px] -rotate-45" : ""}`} />
               </span>
             </button>
           </div>
         </div>
 
-        {mobileMenuOpen ? (
-          <div className="border-t border-black/10 bg-[rgba(247,247,245,0.98)] px-4 pb-4 pt-3 md:hidden">
-            <div className="mx-auto w-full max-w-7xl space-y-4">
-              <nav className="grid gap-2">
+        {mobileMenuOpen && (
+          <div className="border-t border-black/8 bg-[rgba(246,246,243,0.98)] px-4 pb-5 pt-3 md:hidden">
+            <div className="mx-auto w-full max-w-7xl space-y-3">
+              <nav className="grid gap-1.5">
                 {navItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={closeMobileMenu}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold shadow-[0_8px_16px_rgba(17,17,17,0.04)] transition ${
+                    onClick={close}
+                    className={`rounded-2xl border px-4 py-3 text-[15px] font-semibold tracking-[-0.01em] transition ${
                       pathname === item.match
                         ? "border-black bg-black text-white"
-                        : "border-black/10 bg-white text-black"
+                        : "border-black/12 bg-white text-black hover:border-black/24"
                     }`}
                   >
                     {item.label}
@@ -156,31 +169,27 @@ export default function Navbar() {
                 ))}
               </nav>
 
-              <div className="grid gap-2">
-                {isLoaded && !isSignedIn ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Link
-                        href="/sign-in"
-                        onClick={closeMobileMenu}
-                        className="btn-ghost inline-flex min-h-12 items-center justify-center rounded-2xl px-4 text-sm font-semibold"
-                      >
-                        Sign In
-                      </Link>
-                      <Link
-                        href="/sign-up"
-                        onClick={closeMobileMenu}
-                        className="btn-lime inline-flex min-h-12 items-center justify-center rounded-2xl px-4 text-sm font-semibold"
-                      >
-                        Sign Up
-                      </Link>
-                    </div>
-                  </>
-                ) : null}
-              </div>
+              {isLoaded && !isSignedIn && (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Link
+                    href="/sign-in"
+                    onClick={close}
+                    className="btn-ghost inline-flex min-h-11 items-center justify-center rounded-2xl px-4 text-[15px]"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/sign-up"
+                    onClick={close}
+                    className="btn-lime inline-flex min-h-11 items-center justify-center rounded-2xl px-4 text-[15px]"
+                  >
+                    Sign up
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
-        ) : null}
+        )}
       </header>
     </>
   );

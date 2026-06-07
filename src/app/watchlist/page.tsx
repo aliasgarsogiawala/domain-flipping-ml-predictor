@@ -47,7 +47,7 @@ export default function WatchlistPage() {
   return (
     <>
       <AuthLoading>
-        <main className="pb-16">
+        <main className="page-wrap pb-20">
           <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
             <div className="panel-white rounded-[28px] p-10 text-center">
               <h2 className="text-2xl font-semibold text-black">Authorizing watchlist</h2>
@@ -60,7 +60,7 @@ export default function WatchlistPage() {
       </AuthLoading>
 
       <Unauthenticated>
-        <main className="pb-16">
+        <main className="page-wrap pb-20">
           <section className="mt-10 grid-paper rounded-[30px] border border-black p-4 sm:p-6">
             <div className="panel-white rounded-[28px] p-10 text-center">
               <h2 className="text-2xl font-semibold text-black">Sign in required</h2>
@@ -182,8 +182,8 @@ function WatchlistContent() {
     });
   }
   return (
-    <main className="pb-16">
-      <section className="panel-grid relative overflow-hidden rounded-[34px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
+    <main className="page-wrap pb-20">
+      <section className="panel-grid relative overflow-hidden rounded-[40px] border border-black bg-[#090b0f] px-6 py-10 text-white sm:px-10 lg:px-12">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -197,10 +197,10 @@ function WatchlistContent() {
             <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
               Portfolio monitoring desk
             </div>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
+            <h1 className="mt-5 text-[2.4rem] font-semibold leading-[1.07] tracking-[-0.05em] sm:text-[3.2rem]">
               Track domains like an active pipeline, not a bookmark list.
             </h1>
-            <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
+            <p className="mt-5 max-w-3xl text-[1.0625rem] leading-[1.8] text-slate-300">
               Recheck expiry timing, value drift, resale posture, and registrar metadata across monitored names from one workspace.
             </p>
 
@@ -294,7 +294,7 @@ function WatchlistContent() {
               <div className="flex flex-col gap-4 border-b border-black pb-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
                   <p className="section-eyebrow">Watchlist Intelligence</p>
-                  <h2 className="mt-2 text-3xl font-semibold text-black">Active domain portfolio</h2>
+                  <h2 className="mt-2.5 text-[1.75rem] font-semibold leading-[1.15] text-black">Active domain portfolio</h2>
                   <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-700">
                     Use this table to monitor acquisition timing, score drift, expiry windows, and estimated value across your shortlist.
                   </p>

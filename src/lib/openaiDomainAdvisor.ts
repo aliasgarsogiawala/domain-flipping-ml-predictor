@@ -1,10 +1,10 @@
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import type { InvestmentRecommendation } from "./investmentReport";
 
 export type OpenAIAdvisoryConfidence = "Low" | "Medium" | "High";
 
 export type OpenAIDomainInsights = {
-  provider: "openai" | "fallback";
+  provider: "gemini" | "fallback";
   model: string | null;
   summary: string;
   valuationRationale: string;
@@ -46,13 +46,12 @@ export type OpenAIDomainAdvisorInput = {
   comparableSalesCount: number;
 };
 
-const DEFAULT_MODEL = process.env.OPENAI_DOMAIN_MODEL || "gpt-4.1-mini";
+const DEFAULT_MODEL = process.env.GEMINI_DOMAIN_MODEL || "gemini-2.0-flash";
 
-let cachedClient: OpenAI | null = null;
+let cachedClient: GoogleGenAI | null = null;
 
 const advisorySchema = {
   type: "object",
-  additionalProperties: false,
   properties: {
     summary: { type: "string" },
     valuationRationale: { type: "string" },
@@ -135,20 +134,18 @@ const advisorySchema = {
     "aftermarketStrengthScore",
     "negotiationRiskScore",
   ],
-} as const;
+};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
 function getClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-
   if (!cachedClient) {
-    cachedClient = new OpenAI({ apiKey });
+    cachedClient = new GoogleGenAI({ apiKey });
   }
-
   return cachedClient;
 }
 
@@ -284,7 +281,7 @@ function normalizeInsightPayload(
     .filter((candidate): candidate is string => Boolean(candidate) && candidate !== input.domain);
 
   return {
-    provider: "openai",
+    provider: "gemini",
     model: DEFAULT_MODEL,
     summary: payload.summary?.trim() || fallback.summary,
     valuationRationale: payload.valuationRationale?.trim() || fallback.valuationRationale,
@@ -363,33 +360,24 @@ export async function generateOpenAIDomainInsights(
   }
 
   try {
-    const response = await client.responses.create({
+    const prompt = [
+      "You are an analyst inside a domain investing platform. Stay analytical and conservative. Do not promise profits. Use only modest valuation adjustments. Similar domain suggestions should be brand-adjacent and plausible domain strings, not claims of availability. Be strict about premium ratings: only truly elite, broad-demand domains should score highly on premium feel or elite-word signal.",
+      JSON.stringify(input),
+    ].join("\n\n");
+
+    const response = await client.models.generateContent({
       model: DEFAULT_MODEL,
-      instructions:
-        "You are an analyst inside a domain investing platform. Stay analytical and conservative. Do not promise profits. Use only modest valuation adjustments. Similar domain suggestions should be brand-adjacent and plausible domain strings, not claims of availability. Be strict about premium ratings: only truly elite, broad-demand domains should score highly on premium feel or elite-word signal.",
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: JSON.stringify(input),
-            },
-          ],
-        },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "domainflip_ai_advisory",
-          strict: true,
-          schema: advisorySchema,
-        },
-        verbosity: "low",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: advisorySchema,
       },
     });
 
-    const raw = JSON.parse(response.output_text) as Partial<OpenAIDomainInsights>;
+    const text = response.text?.trim();
+    if (!text) throw new Error("Empty response from Gemini");
+
+    const raw = JSON.parse(text) as Partial<OpenAIDomainInsights>;
     return normalizeInsightPayload(input, raw);
   } catch {
     return buildFallbackInsights(input);

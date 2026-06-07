@@ -392,8 +392,8 @@ export default function AnalyzePage() {
   }, [seededDomain]);
 
   return (
-    <main className="pb-16">
-      <section className="panel-grid relative overflow-hidden rounded-[34px] border border-black bg-[#0b0d12] px-6 py-8 text-white sm:px-8 lg:px-10">
+    <main className="page-wrap pb-20">
+      <section className="panel-grid relative overflow-hidden rounded-[40px] border border-black bg-[#090b0f] px-6 py-12 text-white sm:px-12 lg:px-16">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -402,7 +402,7 @@ export default function AnalyzePage() {
             backgroundSize: "56px 56px",
           }}
         />
-        <div className="relative grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="relative grid gap-8 xl:grid-cols-[500px_minmax(0,1fr)]">
           <aside className="space-y-6">
             <div className="panel-dark rounded-[30px] p-6">
               <div className="border-b border-white/10 pb-4">
@@ -514,10 +514,10 @@ export default function AnalyzePage() {
               <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
                 Intelligence workspace
               </div>
-              <h2 className="mt-5 max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl">
+              <h2 className="mt-5 max-w-4xl text-[2.4rem] font-semibold leading-[1.07] tracking-[-0.05em] sm:text-[3rem]">
                 Technical, valuation, and acquisition signals in one domain research surface.
               </h2>
-              <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
+              <p className="mt-5 max-w-3xl text-[1.0625rem] leading-[1.8] text-slate-300">
                 Built to feel like a serious domain intelligence desk: score layers, RDAP details, benchmarked valuation,
                 resale posture, value projection, and deterministic recommendation output.
               </p>
@@ -596,7 +596,7 @@ export default function AnalyzePage() {
             </div>
           </section>
 
-          <section className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_390px]">
+          <section className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1fr)_460px]">
             <div className="space-y-6">
               <SectionCard
                 eyebrow="Value Projection"
