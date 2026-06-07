@@ -133,3 +133,6 @@ A working MVP, not a claim of perfect appraisal accuracy. Multi-signal scoring, 
 ## License
 
 MIT
+
+
+Made by Aliasgar Sogiawala
